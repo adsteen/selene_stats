@@ -1,7 +1,7 @@
 Testing differences in gene abundance among regions and pathotypes
 ================
 
-# Assessing potential differences in distribution of genes among microbes
+# Introduction
 
 The purpose of this analysis is to assess potential differences in the
 distribution of a specific gene among microbes from a specific microbe.

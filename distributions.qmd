@@ -6,7 +6,7 @@ editor: visual
 cache: true
 ---
 
-# Assessing potential differences in distribution of genes among microbes
+# Introduction
 
 The purpose of this analysis is to assess potential differences in the distribution of a specific gene among microbes from a specific microbe. Because this document is public, I'm not going to name the gene or the microbe.
 
