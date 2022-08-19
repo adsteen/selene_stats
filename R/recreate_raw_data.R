@@ -34,6 +34,7 @@ fit_poisson <- function(df) {
   dist_obj
 }
 
+# function to get lambda from poisson fit 
 get_lambda <- function(fit_obj) {
   fit_obj$estimate
 }
