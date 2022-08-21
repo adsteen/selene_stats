@@ -40,5 +40,3 @@ code like this:
 You can add options to executable code like this
 
     [1] 4
-
-lk
