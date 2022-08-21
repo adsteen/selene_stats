@@ -1,28 +1,31 @@
 ---
-title: "test_document"
-author: "Drew"
+title: "Quarto Demonstration"
+author: "Drew Steen"
 format: gfm
 editor: visual
 ---
 
-# Heading 1
+# Heading Level One
 
-That is the biggest possible heading. We can also make lower-level heading:
+Here is some plain text.
 
-## Heading 2
+## Heading Level Two
 
-I don't know why quarto defaults to starting with Heading Level 2.
-
-#Heading doesn't work
+#This won't work as a heading
 
 *italics* **bold** `code style`
 
--   Bullet one
--   Bullet two
+## Bulleted lists
 
-1.  Number 1
-2.  Number 2
-3.  Number 3
+-   item one
+-   item two
+-   item three
+
+## Numbered lists
+
+1.  first
+2.  second
+3.  third
 
 Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
 
@@ -31,6 +34,7 @@ Quarto enables you to weave together content and executable code into a finished
 When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
 
 ```{r}
+# All this will get executed as R code
 1 + 1
 ```
 
@@ -40,3 +44,5 @@ You can add options to executable code like this
 #| echo: false
 2 * 2
 ```
+
+The `echo: false` option disables the printing of code (only output is displayed).
