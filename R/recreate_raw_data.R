@@ -26,7 +26,7 @@ raw_plot <- function(df) {
   p
 }
 
-# fit poisson data 
+# fit gene counts to poisson distribution
 fit_poisson <- function(df) {
   dist_obj <- MASS::fitdistr(df$gene.count, 
                  densfun=dpois, 
