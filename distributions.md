@@ -17,6 +17,7 @@ reasonable.
 ``` r
 library(tidyverse)
 library(MASS)
+theme_set(theme_classic())
 
 # Load and pre-process the data by region and pathotype
 region <- read_csv("data/region.csv") %>%
@@ -97,6 +98,9 @@ We could do a Tukey post-hoc analysis to determine which categories are
 significantly different from which. But given that QQ plot, I don’t
 think we should go down that road.
 
+![Not great Bob
+gif](https://64.media.tumblr.com/f8b7a14c2fa304a712b5f92ea14d62f9/tumblr_n41bxrhleZ1rvirvyo1_400.gif)
+
 ### Linear model for pathotypes
 
 ``` r
@@ -134,23 +138,147 @@ goodness-of-fit.
 
 ``` r
 d <- rbind(region %>% mutate(type="region"),
-           path %>% mutate(type="path"))
+           path %>% mutate(type="path")) %>%
+  mutate(category=factor(category, levels = c("Africa","Asia", "Europe", "North America", "Oceania", "South America", "pa", "healthy", "intestinal disease", "urinary disease"), ordere=TRUE))
 
-test <- raw_region_data %>% filter(category=="Africa")
-Africa_lambda <- MASS::fitdistr(test$gene.count, 
-               densfun=dpois, 
-               start=list(lambda = 1)) # Not sure what this warning is about
-```
-
-    Warning in stats::optim(x = c(0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, : one-dimensional optimization by Nelder-Mead is unreliable:
-    use "Brent" or optimize() directly
-
-``` r
-Af_fits <- data.frame(x = 0:8, y=dpois(x=0:8, lambda=Africa_lambda$estimate))
-ggplot() + 
-  geom_line(data = Af_fits, aes(x=x, y=y)) + 
-  geom_point(data = region %>% filter(category=="Africa"), aes(x=gene.count, y=freq)) + 
-  scale_x_continuous(breaks = 0:8) # I think 3 and 4 is throwing it off. Hmm. 
+ggplot(d, aes(x=gene.count, y=count)) + 
+  geom_point() + 
+  facet_wrap(~category, scale="free_y")
 ```
 
 ![](distributions_files/figure-gfm/unnamed-chunk-7-1.png)
+
+**THESE ARE NOT POISSON-LOOKING DATA**. I’m pretty sure that part of the
+issue is there is correlation between the two genes in terms of whether
+they are likely to appear in hte genome - that is, if one of the genes
+is present, the other is likely to be as well. Note there are almost
+never exactly 3 genes present.
+
+So, I don’t really want to model this with Poisson distributions (or, we
+could model each gene separately with a Poisson distribution. Not sure
+whether that helps anyone).
+
+``` r
+### Fit each category to its own poisson model
+# function to fit the model
+pois_fit <- function(df) {
+  MASS::fitdistr(df$gene.count, 
+               densfun=dpois, 
+               start=list(lambda = 1)) 
+}
+
+d_nest <- d %>%
+  group_by(category) %>%
+  nest() %>%
+  mutate(pois_fits = map(data, pois_fit),
+         lambdas = map_dbl(pois_fits,  function(x) x$estimate))
+```
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+    Warning in stats::optim(x = c(0, 1, 2, 3, 4, 6, 8), par = list(lambda = 1), : one-dimensional optimization by Nelder-Mead is unreliable:
+    use "Brent" or optimize() directly
+
+# Monte Carlo simulations
+
+I think it is more robust to doa monte carlo simulation of variation in
+the ANOVA f ratio.
+
+``` r
+# There are, like, a lot of faster ways to do this
+shuf_calc_f <- function(df, nrow) {
+  df <- df %>% 
+    ungroup() %>%
+    mutate(shuf.cat = sample(category, size = nrow, replace=TRUE))
+  df
+  
+  m <- aov(gene.count ~ shuf.cat, data = df)
+  f <- summary(m)[[1]][1,4]
+  f
+}
+
+n <- 10000
+nrow.reg <- nrow(region)
+nrow.path <- nrow(path)
+reg.f.vec <- vector("double", n)
+path.f.vec <- vector("double", n)
+
+set.seed(512)
+region.loop.time <- system.time({
+  for(i in 1:n) {
+  reg.f.vec[i] <- shuf_calc_f(region, nrow.reg)
+}
+})
+
+set.seed(2112)
+path.loop.time <- system.time({
+  for(i in 1:n) {
+  path.f.vec[i] <- shuf_calc_f(path, nrow.path)
+}
+})
+# This takes ~22 sec per loop on my system
+
+f_vals <- data.frame(reg.sim.f = reg.f.vec,
+                     path.sim.f = path.f.vec)
+```
+
+``` r
+# Pull out actual f values
+reg.f.real <- summary(aov(region_model))[[1]][1,4]
+path.f.real <- summary(aov(path_model))[[1]][1,4]
+```
+
+How do the real f values compare to the simulated, null-hypothesis
+values?
+
+``` r
+p_reg_hist <- ggplot(f_vals, aes(x=reg.sim.f)) + 
+  geom_histogram(bins = 100) + 
+  geom_vline(xintercept = reg.f.real, color="red")  + 
+  ggtitle("data by region")
+print(p_reg_hist)
+```
+
+![](distributions_files/figure-gfm/unnamed-chunk-11-1.png)
+
+``` r
+p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) + 
+  geom_histogram(bins = 100) + 
+  geom_vline(xintercept = path.f.real, color="red") + 
+  ggtitle("data by pathology")
+print(p_path_hist)
+```
+
+![](distributions_files/figure-gfm/unnamed-chunk-12-1.png)
+
+So: I have simulated 10^{4} and found that, for each case, the actual
+measured *f* values are much, much larger than they would be likely to
+be if the null hypothesis were true - so much larger that we can’t
+calculate a p value, because none of our 10,000 simulations captured a
+*f* value that big. We can say conservatively say that, in each case, p
+\< 0.0001.
