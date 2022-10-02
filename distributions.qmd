@@ -1,7 +1,7 @@
 ---
 title: "Testing differences in gene abundance among regions and pathotypes"
-# format: html
-format: gfm
+format: html
+#format: gfm
 editor: visual
 cache: true
 ---
@@ -78,7 +78,7 @@ Oof, that's pretty grim. I'd say we these residuals are non-normally distributed
 
 We could do a Tukey post-hoc analysis to determine which categories are significantly different from which. But given that QQ plot, I don't think we should go down that road.
 
-![Not great Bob gif](https://64.media.tumblr.com/f8b7a14c2fa304a712b5f92ea14d62f9/tumblr_n41bxrhleZ1rvirvyo1_400.gif)
+![](https://64.media.tumblr.com/f8b7a14c2fa304a712b5f92ea14d62f9/tumblr_n41bxrhleZ1rvirvyo1_400.gif)
 
 ### Linear model for pathotypes
 
@@ -113,8 +113,7 @@ ggplot(d, aes(x=gene.count, y=count)) +
 **THESE ARE NOT POISSON-LOOKING DATA**. I'm pretty sure that part of the issue is there is correlation between the two genes in terms of whether they are likely to appear in hte genome - that is, if one of the genes is present, the other is likely to be as well. Note there are almost never exactly 3 genes present.
 
 So, I don't really want to model this with Poisson distributions (or, we could model each gene separately with a Poisson distribution. Not sure whether that helps anyone). 
-```{r}
-
+```{r, echo=FALSE, include=FALSE}
 ### Fit each category to its own poisson model
 # function to fit the model
 pois_fit <- function(df) {

@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>modeling_selene_data_via_poisson</title>
+<title>Testing differences in gene abundance among regions and pathotypes</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -104,7 +104,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">modeling_selene_data_via_poisson</h1>
+<h1 class="title">Testing differences in gene abundance among regions and pathotypes</h1>
 </div>
 
 
@@ -118,49 +118,54 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 </header>
 
-<section id="assessing-potential-differences-in-distribution-of-genes-among-microbes" class="level1">
-<h1>Assessing potential differences in distribution of genes among microbes</h1>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
 <p>The purpose of this analysis is to assess potential differences in the distribution of a specific gene among microbes from a specific microbe. Because this document is public, I’m not going to name the gene or the microbe.</p>
 <section id="anova" class="level2">
 <h2 class="anchored" data-anchor-id="anova">ANOVA</h2>
 <p>A simple way to do this would be an ANOVA. Let’s try and check whether the distributions of residuals and stability of variances look reasonable.</p>
-<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-1_56de9bedb25736035af8df84618f8a07">
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-1_6a3180f2619d294342f58e17230006a6">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(MASS)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Load and pre-process the data by region and pathotype</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>region <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/region.csv"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="st">`</span><span class="at">gene number</span><span class="st">`</span><span class="sc">!=</span><span class="st">"TOTAL"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">7</span>, <span class="at">names_to =</span> <span class="st">"category"</span>, <span class="at">values_to =</span> <span class="st">"frequency"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">gene.count =</span> <span class="fu">as.numeric</span>(<span class="st">`</span><span class="at">gene number</span><span class="st">`</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="st">`</span><span class="at">gene number</span><span class="st">`</span>)</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>path <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/pathotype.csv"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">#filter(`gene number`!="TOTAL") %&gt;%</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">5</span>, <span class="at">names_to =</span> <span class="st">"category"</span>, <span class="at">values_to=</span><span class="st">"frequency"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">gene.count =</span> <span class="fu">as.numeric</span>(<span class="st">`</span><span class="at">gene number</span><span class="st">`</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="st">`</span><span class="at">gene number</span><span class="st">`</span>)</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co"># I need to recreate the raw data to do an anova</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co"># I wrote some *very* ugly code to do this, so I hid it in a separate file</span></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/recreate_raw_data.R"</span>)</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_set</span>(<span class="fu">theme_classic</span>())</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Load and pre-process the data by region and pathotype</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>region <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/region.csv"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="st">`</span><span class="at">gene number</span><span class="st">`</span><span class="sc">!=</span><span class="st">"TOTAL"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">7</span>, <span class="at">names_to =</span> <span class="st">"category"</span>, <span class="at">values_to =</span> <span class="st">"count"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">gene.count =</span> <span class="fu">as.numeric</span>(<span class="st">`</span><span class="at">gene number</span><span class="st">`</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="st">`</span><span class="at">gene number</span><span class="st">`</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(category) <span class="sc">%&gt;%</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">freq =</span> count <span class="sc">/</span> <span class="fu">sum</span>(count, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>path <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/pathotype.csv"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">#filter(`gene number`!="TOTAL") %&gt;%</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">5</span>, <span class="at">names_to =</span> <span class="st">"category"</span>, <span class="at">values_to=</span><span class="st">"count"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">gene.count =</span> <span class="fu">as.numeric</span>(<span class="st">`</span><span class="at">gene number</span><span class="st">`</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="st">`</span><span class="at">gene number</span><span class="st">`</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(category) <span class="sc">%&gt;%</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">freq =</span> count <span class="sc">/</span> <span class="fu">sum</span>(count, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
 <span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>raw_region_data <span class="ot">&lt;-</span> <span class="fu">recreate_raw</span>(region) <span class="sc">%&gt;%</span></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(category) <span class="co"># this appears to have worked</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>raw_path_data <span class="ot">&lt;-</span> <span class="fu">recreate_raw</span>(path)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="co"># I need to recreate the raw data to do an anova</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># I wrote some *very* ugly code to do this, so I hid it in a separate file</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/recreate_raw_data.R"</span>)</span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>raw_plot <span class="ot">&lt;-</span> <span class="cf">function</span>(df) {</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">x=</span>category, <span class="at">y=</span>gene.count)) <span class="sc">+</span> </span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>() <span class="sc">+</span> </span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">position=</span><span class="fu">position_jitter</span>(<span class="at">height =</span> <span class="fl">0.3</span>), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span> </span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span> </span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle=</span><span class="sc">-</span><span class="dv">45</span>, <span class="at">hjust=</span><span class="dv">0</span>))</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  p</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>p_region <span class="ot">&lt;-</span> <span class="fu">raw_plot</span>(raw_region_data)</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>p_path <span class="ot">&lt;-</span> <span class="fu">raw_plot</span>(raw_path_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>raw_region_data <span class="ot">&lt;-</span> <span class="fu">recreate_raw</span>(region) <span class="sc">%&gt;%</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(category) <span class="co"># this appears to have worked</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>raw_path_data <span class="ot">&lt;-</span> <span class="fu">recreate_raw</span>(path)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>raw_plot <span class="ot">&lt;-</span> <span class="cf">function</span>(df) {</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">x=</span>category, <span class="at">y=</span>gene.count)) <span class="sc">+</span> </span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>() <span class="sc">+</span> </span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">position=</span><span class="fu">position_jitter</span>(<span class="at">height =</span> <span class="fl">0.3</span>), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span> </span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span> </span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle=</span><span class="sc">-</span><span class="dv">45</span>, <span class="at">hjust=</span><span class="dv">0</span>))</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  p</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>p_region <span class="ot">&lt;-</span> <span class="fu">raw_plot</span>(raw_region_data)</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>p_path <span class="ot">&lt;-</span> <span class="fu">raw_plot</span>(raw_path_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-plot="true" data-hash="distributions_cache/html/unnamed-chunk-2_26e7b181b2387fc3532217ec0a0f504a">
 <div class="cell-output-display">
@@ -171,99 +176,137 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>Is a linear model (ANOVA) good for these data? Specifically: ANOVA is fairly robust to unbalanced designs and to heteroskedasticity, but not to hetereoskedastic data in an unbalanced design. So let’s check the heteroskedasticity.</p>
 <section id="linear-model-for-regions" class="level3">
 <h3 class="anchored" data-anchor-id="linear-model-for-regions">Linear model for regions</h3>
-<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-3_a242a46b9054b170a403ef0c7847f713">
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-3_e621f9f70d83862aa3b7c2e43c64e9fa">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>region_model <span class="ot">&lt;-</span> <span class="fu">lm</span>(gene.count <span class="sc">~</span> category, <span class="at">data=</span>raw_region_data)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(region_model)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(<span class="fu">aov</span>(region_model))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>
-Call:
-lm(formula = gene.count ~ category, data = raw_region_data)
-
-Residuals:
-   Min     1Q Median     3Q    Max 
--3.171 -1.247 -0.280  1.372  5.753 
-
-Coefficients:
-                      Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)             2.2800     0.2779   8.205 4.37e-16 ***
-categoryAsia           -0.0326     0.2850  -0.114   0.9090    
-categoryEurope          0.3484     0.2831   1.231   0.2186    
-categoryNorth America   0.3772     0.2840   1.328   0.1843    
-categoryOceania         0.8914     0.3638   2.450   0.0144 *  
-categorySouth America  -0.7086     0.4113  -1.723   0.0851 .  
+<pre><code>              Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+category       5     89   17.84    9.24 1.07e-08 ***
+Residuals   1781   3438    1.93                     
 ---
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-Residual standard error: 1.389 on 1781 degrees of freedom
-Multiple R-squared:  0.02528,   Adjusted R-squared:  0.02255 
-F-statistic:  9.24 on 5 and 1781 DF,  p-value: 1.071e-08</code></pre>
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
 </div>
-<p>The model for regions finds no significant differences among regions. We can assess the appropriateness of this model with QQ and residual vs factor level plots.</p>
-<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-4_c6b397397651554a536ba65cc1783bf4">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(region_model, <span class="at">which=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">5</span>)) <span class="co"># actually these don't look as bad as I imagined?</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>This model finds signficant differences among regions. But before we take this too seriously, let’s check whether the residuals are normally distributed. A good way to do that is via a QQ plot. The</p>
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-4_3a1fe992c1d50f7667023505911a2765">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(region_model, <span class="at">which=</span><span class="dv">2</span>) <span class="co"># actually these don't look as bad as I imagined?</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <p><img src="distributions_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
 </div>
-<div class="cell-output-display">
-<p><img src="distributions_files/figure-html/unnamed-chunk-4-2.png" class="img-fluid" width="672"></p>
 </div>
-</div>
-<p>These don’t actually look as bad as I imagined. The QQ plot, ideally, should have all the points on the diagonal line, and they’re not too far off. The residual vs factor levels red line should be flat, and it is impressively flat.</p>
+<p>Oof, that’s pretty grim. I’d say we these residuals are non-normally distributed enough that I don’t think this is a great model.</p>
+<p>We could do a Tukey post-hoc analysis to determine which categories are significantly different from which. But given that QQ plot, I don’t think we should go down that road.</p>
+<p><img src="https://64.media.tumblr.com/f8b7a14c2fa304a712b5f92ea14d62f9/tumblr_n41bxrhleZ1rvirvyo1_400.gif" class="img-fluid"></p>
 </section>
 <section id="linear-model-for-pathotypes" class="level3">
 <h3 class="anchored" data-anchor-id="linear-model-for-pathotypes">Linear model for pathotypes</h3>
-<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-5_8c1e170c6aeb0588e8e130778b9ed986">
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-5_181287edcbdedb304e3eafa03b1c62b3">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>path_model <span class="ot">&lt;-</span> <span class="fu">lm</span>(gene.count <span class="sc">~</span> category, <span class="at">data=</span>raw_path_data)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(path_model)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(<span class="fu">aov</span>(path_model))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>
-Call:
-lm(formula = gene.count ~ category, data = raw_path_data)
-
-Residuals:
-    Min      1Q  Median      3Q     Max 
--3.3142 -0.9211  0.6858  0.6858  4.6858 
-
-Coefficients:
-                           Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)                  2.2241     0.1591  13.980  &lt; 2e-16 ***
-categoryintestinal disease   1.0901     0.1702   6.404 3.05e-10 ***
-categorypa                  -0.3031     0.2529  -1.199    0.231    
-categoryurinary disease     -0.1599     0.1969  -0.812    0.417    
+<pre><code>             Df Sum Sq Mean Sq F value Pr(&gt;F)    
+category      3  207.8   69.28   47.19 &lt;2e-16 ***
+Residuals   602  883.8    1.47                   
 ---
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-Residual standard error: 1.212 on 602 degrees of freedom
-Multiple R-squared:  0.1904,    Adjusted R-squared:  0.1864 
-F-statistic: 47.19 on 3 and 602 DF,  p-value: &lt; 2.2e-16</code></pre>
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
 </div>
-<p>Again, no significant differences.</p>
-<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-6_6b03a9773f27d5e8abb721111da6a525">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(path_model, <span class="at">which=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">5</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Again, significant differences among pathotypes.</p>
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-6_21d1043c7bead473434eaa90e55c5aa6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(path_model, <span class="at">which=</span><span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <p><img src="distributions_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
 </div>
-<div class="cell-output-display">
-<p><img src="distributions_files/figure-html/unnamed-chunk-6-2.png" class="img-fluid" width="672"></p>
 </div>
-</div>
-<p>Same situation here. The QQ plot isn’t ideal, but it isn’t awful, either.</p>
+<p>Same situation here. Not great!</p>
 </section>
 </section>
 <section id="poisson-distribution" class="level2">
 <h2 class="anchored" data-anchor-id="poisson-distribution">Poisson distribution?</h2>
 <p>I propose that we can think of gene distribution as a poisson process, where different values of <span class="math inline">\(\lambda\)</span> indicate different probabilities of the gene being “handed out”. If this is the case, we can assess whether there are difference in lambda among regions or pathotypes - but first we need to assess whether the data are, in fact, poisson-distributed. We’ll simply load the data, fit it to a poisson distribution, and see whether the fit looks good. I think in this case a qualitative assessment is at least as good as some kind fo statistical test of goodness-of-fit.</p>
-<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-7_f83544d6d1dd648cfbfd7612f54aedc4">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(MASS)</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Write a function to do this</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>region <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/region.csv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-7_4a9071ec310cc37ef244cb399f59c14a">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">rbind</span>(region <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">type=</span><span class="st">"region"</span>),</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>           path <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">type=</span><span class="st">"path"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">category=</span><span class="fu">factor</span>(category, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"Africa"</span>,<span class="st">"Asia"</span>, <span class="st">"Europe"</span>, <span class="st">"North America"</span>, <span class="st">"Oceania"</span>, <span class="st">"South America"</span>, <span class="st">"pa"</span>, <span class="st">"healthy"</span>, <span class="st">"intestinal disease"</span>, <span class="st">"urinary disease"</span>), <span class="at">ordere=</span><span class="cn">TRUE</span>))</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(d, <span class="fu">aes</span>(<span class="at">x=</span>gene.count, <span class="at">y=</span>count)) <span class="sc">+</span> </span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>category, <span class="at">scale=</span><span class="st">"free_y"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="distributions_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
 </div>
+</div>
+<p><strong>THESE ARE NOT POISSON-LOOKING DATA</strong>. I’m pretty sure that part of the issue is there is correlation between the two genes in terms of whether they are likely to appear in hte genome - that is, if one of the genes is present, the other is likely to be as well. Note there are almost never exactly 3 genes present.</p>
+<p>So, I don’t really want to model this with Poisson distributions (or, we could model each gene separately with a Poisson distribution. Not sure whether that helps anyone).</p>
 </section>
+</section>
+<section id="monte-carlo-simulations" class="level1">
+<h1>Monte Carlo simulations</h1>
+<p>I think it is more robust to doa monte carlo simulation of variation in the ANOVA f ratio.</p>
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-9_e718bece9258a81c7754ff62a5657e3c">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># There are, like, a lot of faster ways to do this</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>shuf_calc_f <span class="ot">&lt;-</span> <span class="cf">function</span>(df, nrow) {</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span> </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">shuf.cat =</span> <span class="fu">sample</span>(category, <span class="at">size =</span> nrow, <span class="at">replace=</span><span class="cn">TRUE</span>))</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  df</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">&lt;-</span> <span class="fu">aov</span>(gene.count <span class="sc">~</span> shuf.cat, <span class="at">data =</span> df)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  f <span class="ot">&lt;-</span> <span class="fu">summary</span>(m)[[<span class="dv">1</span>]][<span class="dv">1</span>,<span class="dv">4</span>]</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  f</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">10000</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>nrow.reg <span class="ot">&lt;-</span> <span class="fu">nrow</span>(region)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>nrow.path <span class="ot">&lt;-</span> <span class="fu">nrow</span>(path)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>reg.f.vec <span class="ot">&lt;-</span> <span class="fu">vector</span>(<span class="st">"double"</span>, n)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>path.f.vec <span class="ot">&lt;-</span> <span class="fu">vector</span>(<span class="st">"double"</span>, n)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">512</span>)</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>region.loop.time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n) {</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>  reg.f.vec[i] <span class="ot">&lt;-</span> <span class="fu">shuf_calc_f</span>(region, nrow.reg)</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2112</span>)</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>path.loop.time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n) {</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>  path.f.vec[i] <span class="ot">&lt;-</span> <span class="fu">shuf_calc_f</span>(path, nrow.path)</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a><span class="co"># This takes ~22 sec per loop on my system</span></span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>f_vals <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">reg.sim.f =</span> reg.f.vec,</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>                     <span class="at">path.sim.f =</span> path.f.vec)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-10_e1a06569673f831c31855a002cdd8279">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pull out actual f values</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>reg.f.real <span class="ot">&lt;-</span> <span class="fu">summary</span>(<span class="fu">aov</span>(region_model))[[<span class="dv">1</span>]][<span class="dv">1</span>,<span class="dv">4</span>]</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>path.f.real <span class="ot">&lt;-</span> <span class="fu">summary</span>(<span class="fu">aov</span>(path_model))[[<span class="dv">1</span>]][<span class="dv">1</span>,<span class="dv">4</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>How do the real f values compare to the simulated, null-hypothesis values?</p>
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-11_1c273478b2954db2f0dfbcf119419d5a">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>p_reg_hist <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(f_vals, <span class="fu">aes</span>(<span class="at">x=</span>reg.sim.f)) <span class="sc">+</span> </span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">100</span>) <span class="sc">+</span> </span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> reg.f.real, <span class="at">color=</span><span class="st">"red"</span>)  <span class="sc">+</span> </span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"data by region"</span>)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_reg_hist)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="distributions_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell" data-hash="distributions_cache/html/unnamed-chunk-12_e8be3295cce662cb0c7da20dcd51a810">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>p_path_hist <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(f_vals, <span class="fu">aes</span>(<span class="at">x=</span>path.sim.f)) <span class="sc">+</span> </span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">100</span>) <span class="sc">+</span> </span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> path.f.real, <span class="at">color=</span><span class="st">"red"</span>) <span class="sc">+</span> </span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"data by pathology"</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_path_hist)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="distributions_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>So: I have simulated 10^{4} and found that, for each case, the actual measured <em>f</em> values are much, much larger than they would be likely to be if the null hypothesis were true - so much larger that we can’t calculate a p value, because none of our 10,000 simulations captured a <em>f</em> value that big. We can say conservatively say that, in each case, p &lt; 0.0001.</p>
 </section>
 
 </main>
