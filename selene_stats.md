@@ -71,6 +71,11 @@ raw_bar_plot <- function(df) {
     scale_fill_brewer(type="qual")
   p
 }
+
+p_reg_line <- raw_line_plot(raw_region_data)
+p_path_line <- raw_line_plot(raw_path_data)
+p_reg_bar <- raw_bar_plot(raw_region_data)
+p_path_bar <- raw_bar_plot(raw_path_data)
 ```
 
 I’m not really sure what the best way to display these is, so I’m giving

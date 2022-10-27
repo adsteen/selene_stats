@@ -71,12 +71,17 @@ raw_bar_plot <- function(df) {
     scale_fill_brewer(type="qual")
   p
 }
+
+p_reg_line <- raw_line_plot(raw_region_data)
+p_path_line <- raw_line_plot(raw_path_data)
+p_reg_bar <- raw_bar_plot(raw_region_data)
+p_path_bar <- raw_bar_plot(raw_path_data)
 ```
 I'm not really sure what the best way to display these is, so I'm giving three options:
-```{r, plot=TRUE, echo=FALSE, fig.height=7, fig.width=7}
+```{r, plot=TRUE, echo=FALSE, fig.height=7, fig.width=8}
 cowplot::plot_grid(p_region, p_path,
-                   raw_line_plot(raw_region_data), raw_line_plot(raw_path_data),
-                   raw_bar_plot(raw_region_data), raw_bar_plot(raw_path_data),
+                   p_reg_line, p_path_line,
+                   p_reg_bar, p_path_bar,
                    nrow=3)
 ```
 
