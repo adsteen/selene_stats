@@ -17,7 +17,7 @@ reasonable.
 ``` r
 library(tidyverse)
 library(MASS)
-theme_set(theme_classic())
+theme_set(theme_classic()) 
 
 # Load and pre-process the data by region and pathotype
 region <- read_csv("data/region.csv") %>%
@@ -48,7 +48,7 @@ raw_path_data <- recreate_raw(path)
 raw_plot <- function(df) {
   p <- ggplot(df, aes(x=category, y=gene.count)) + 
   geom_boxplot() + 
-  geom_point(position=position_jitter(height = 0.3), alpha = 0.5) + 
+  #geom_point(position=position_jitter(height = 0.3), alpha = 0.5) + 
   theme_classic() + 
   theme(axis.text.x = element_text(angle=-45, hjust=0))
   p
@@ -56,9 +56,27 @@ raw_plot <- function(df) {
 
 p_region <- raw_plot(raw_region_data)
 p_path <- raw_plot(raw_path_data)
+
+raw_line_plot <- function(df) {
+  p <- ggplot(df, aes(x=gene.count, y=freq, color=category)) + 
+    geom_point() + 
+    geom_line()  + 
+    scale_color_brewer(type="qual")
+  p
+}
+
+raw_bar_plot <- function(df) {
+  p <- ggplot(df, aes(x=gene.count, y=freq, fill=category)) + 
+    geom_bar(stat="identity", position="dodge") + 
+    scale_fill_brewer(type="qual")
+  p
+}
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-2-1.png)
+I’m not really sure what the best way to display these is, so I’m giving
+three options:
+
+![](selene_stats_files/figure-gfm/unnamed-chunk-4-1.png)
 
 I don’t see obvious differences in distribution, but this is why we do
 statistics I suppose.
@@ -89,7 +107,7 @@ distributed. A good way to do that is via a QQ plot. The
 plot(region_model, which=2) 
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-4-1.png)
+![](selene_stats_files/figure-gfm/unnamed-chunk-8-1.png)
 
 Oof, that’s pretty grim. I’d say we these residuals are non-normally
 distributed enough that I don’t think this is a great model.
@@ -119,7 +137,7 @@ Again, significant differences among pathotypes.
 plot(path_model, which=2)
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-6-1.png)
+![](selene_stats_files/figure-gfm/unnamed-chunk-12-1.png)
 
 Same situation here. The QQ-plot is sufficiently
 not-like-a-straight-line that I don’t really want to interpret the p
@@ -147,7 +165,7 @@ ggplot(d, aes(x=gene.count, y=count)) +
   facet_wrap(~category, scale="free_y")
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-7-1.png)
+![](selene_stats_files/figure-gfm/unnamed-chunk-14-1.png)
 
 **THESE ARE NOT POISSON-LOOKING DATA**. I’m pretty sure that part of the
 issue is there is correlation between the two genes in terms of whether
@@ -225,7 +243,7 @@ p_reg_hist <- ggplot(f_vals, aes(x=reg.sim.f)) +
 print(p_reg_hist)
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-11-1.png)
+![](selene_stats_files/figure-gfm/unnamed-chunk-22-1.png)
 
 ``` r
 p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) + 
@@ -235,7 +253,7 @@ p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) +
 print(p_path_hist)
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-12-1.png)
+![](selene_stats_files/figure-gfm/unnamed-chunk-24-1.png)
 
 So: I have simulated 10,000 and found that, for each case, the actual
 measured *f* values are much, much larger than they would be likely to

@@ -72,13 +72,13 @@ summary(aov(region_model))
 ```
 This model finds signficant differences among regions. But before we take this too seriously, let's check whether the residuals are normally distributed. A good way to do that is via a QQ plot. The 
 ```{r}
-plot(region_model, which=2) # actually these don't look as bad as I imagined?
+plot(region_model, which=2) 
 ```
 Oof, that's pretty grim. I'd say we these residuals are non-normally distributed enough that I don't think this is a great model. 
 
-We could do a Tukey post-hoc analysis to determine which categories are significantly different from which. But given that QQ plot, I don't think we should go down that road.
-
 ![](https://64.media.tumblr.com/f8b7a14c2fa304a712b5f92ea14d62f9/tumblr_n41bxrhleZ1rvirvyo1_400.gif)
+
+We could do a Tukey post-hoc analysis to determine which categories are significantly different from which. But given that QQ plot, I don't think we should go down that road.
 
 ### Linear model for pathotypes
 
@@ -93,8 +93,7 @@ Again, significant differences among pathotypes.
 plot(path_model, which=2)
 ```
 
-Same situation here. Not great! 
-
+Same situation here. The QQ-plot is sufficiently not-like-a-straight-line that I don't really want to interpret the p values that come from it. 
 
 
 ## Poisson distribution?
@@ -130,9 +129,13 @@ d_nest <- d %>%
   
 ```
 
+## Poisson summary
+
+We probably don't want to apply a poisson model to data that don't qualitatively look poisson-distributed, much as I like the idea o fusing those kinds of distributions.
+
 # Monte Carlo simulations
 
-I think it is more robust to doa  monte carlo simulation of variation in the ANOVA f ratio. 
+I think it is more robust to do a Monte Carlo simulation of variation in the ANOVA *f* ratio. 
 ```{r}
 # There are, like, a lot of faster ways to do this
 shuf_calc_f <- function(df, nrow) {
@@ -196,4 +199,23 @@ p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) +
 print(p_path_hist)
 ```
 
-So: I have simulated `r n` and found that, for each case, the actual measured *f* values are much, much larger than they would be likely to be if the null hypothesis were true - so much larger that we can't calculate a p value, because none of our 10,000 simulations captured a *f* value that big. We can say conservatively say that, in each case, p < 0.0001. 
+So: I have simulated `r format(n, scientific=FALSE, big.mark=",")` and found that, for each case, the actual measured *f* values are much, much larger than they would be likely to be if the null hypothesis were true - so much larger that we can't calculate a p value, because none of our `r format(n, scientific=FALSE, big.mark=",")` simulations captured a *f* value that big. We can say conservatively say that, in each case, p < 0.0001. 
+
+In summary:
+
+```{r, echo=FALSE}
+sim.max.f.print.path <- max(f_vals$path.sim.f) %>%
+  format(digits = 2)
+sim.max.f.print.reg <- max(f_vals$reg.sim.f) %>%
+  format(digits = 2)
+actual.f.path <- path.f.real %>%
+  format(digits = 2)
+actual.f.reg <- reg.f.real %>%
+  format(digits = 2)
+```
+
+
+ f-value| Simulated maximum | Observed
+-|-------------------|----------
+by pathology | `r sim.max.f.print.path` | `r actual.f.path`
+by region |  `r sim.max.f.print.reg` | `r actual.f.reg`

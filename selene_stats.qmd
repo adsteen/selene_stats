@@ -10,14 +10,14 @@ cache: true
 
 The purpose of this analysis is to assess potential differences in the distribution of a specific gene among microbes from a specific microbe. Because this document is public, I'm not going to name the gene or the microbe.
 
-## ANOVA 
+## ANOVA
 
 A simple way to do this would be an ANOVA. Let's try and check whether the distributions of residuals and stability of variances look reasonable.
 
 ```{r, message=FALSE}
 library(tidyverse)
 library(MASS)
-theme_set(theme_classic())
+theme_set(theme_classic()) 
 
 # Load and pre-process the data by region and pathotype
 region <- read_csv("data/region.csv") %>%
@@ -48,7 +48,7 @@ raw_path_data <- recreate_raw(path)
 raw_plot <- function(df) {
   p <- ggplot(df, aes(x=category, y=gene.count)) + 
   geom_boxplot() + 
-  geom_point(position=position_jitter(height = 0.3), alpha = 0.5) + 
+  #geom_point(position=position_jitter(height = 0.3), alpha = 0.5) + 
   theme_classic() + 
   theme(axis.text.x = element_text(angle=-45, hjust=0))
   p
@@ -56,25 +56,48 @@ raw_plot <- function(df) {
 
 p_region <- raw_plot(raw_region_data)
 p_path <- raw_plot(raw_path_data)
+
+raw_line_plot <- function(df) {
+  p <- ggplot(df, aes(x=gene.count, y=freq, color=category)) + 
+    geom_point() + 
+    geom_line()  + 
+    scale_color_brewer(type="qual")
+  p
+}
+
+raw_bar_plot <- function(df) {
+  p <- ggplot(df, aes(x=gene.count, y=freq, fill=category)) + 
+    geom_bar(stat="identity", position="dodge") + 
+    scale_fill_brewer(type="qual")
+  p
+}
 ```
-```{r, plot=TRUE, echo=FALSE, fig.height=3, fig.width=6}
-cowplot::plot_grid(p_region, p_path)
+I'm not really sure what the best way to display these is, so I'm giving three options:
+```{r, plot=TRUE, echo=FALSE, fig.height=7, fig.width=7}
+cowplot::plot_grid(p_region, p_path,
+                   raw_line_plot(raw_region_data), raw_line_plot(raw_path_data),
+                   raw_bar_plot(raw_region_data), raw_bar_plot(raw_path_data),
+                   nrow=3)
 ```
 
 I don't see obvious differences in distribution, but this is why we do statistics I suppose.
 
-Is a linear model (ANOVA) good for these data? Specifically: ANOVA is fairly robust to unbalanced designs and to heteroskedasticity, but not to hetereoskedastic data in an unbalanced design. So let's check the heteroskedasticity. 
+Is a linear model (ANOVA) good for these data? Specifically: ANOVA is fairly robust to unbalanced designs and to heteroskedasticity, but not to hetereoskedastic data in an unbalanced design. So let's check the heteroskedasticity.
 
 ### Linear model for regions
+
 ```{r}
 region_model <- lm(gene.count ~ category, data=raw_region_data)
 summary(aov(region_model))
 ```
-This model finds signficant differences among regions. But before we take this too seriously, let's check whether the residuals are normally distributed. A good way to do that is via a QQ plot. The 
+
+This model finds signficant differences among regions. But before we take this too seriously, let's check whether the residuals are normally distributed. A good way to do that is via a QQ plot. The
+
 ```{r}
 plot(region_model, which=2) 
 ```
-Oof, that's pretty grim. I'd say we these residuals are non-normally distributed enough that I don't think this is a great model. 
+
+Oof, that's pretty grim. I'd say we these residuals are non-normally distributed enough that I don't think this is a great model.
 
 ![](https://64.media.tumblr.com/f8b7a14c2fa304a712b5f92ea14d62f9/tumblr_n41bxrhleZ1rvirvyo1_400.gif)
 
@@ -86,15 +109,14 @@ We could do a Tukey post-hoc analysis to determine which categories are signific
 path_model <- lm(gene.count ~ category, data=raw_path_data)
 summary(aov(path_model))
 ```
-Again, significant differences among pathotypes. 
 
+Again, significant differences among pathotypes.
 
 ```{r}
 plot(path_model, which=2)
 ```
 
-Same situation here. The QQ-plot is sufficiently not-like-a-straight-line that I don't really want to interpret the p values that come from it. 
-
+Same situation here. The QQ-plot is sufficiently not-like-a-straight-line that I don't really want to interpret the p values that come from it.
 
 ## Poisson distribution?
 
@@ -109,9 +131,11 @@ ggplot(d, aes(x=gene.count, y=count)) +
   geom_point() + 
   facet_wrap(~category, scale="free_y")
 ```
+
 **THESE ARE NOT POISSON-LOOKING DATA**. I'm pretty sure that part of the issue is there is correlation between the two genes in terms of whether they are likely to appear in hte genome - that is, if one of the genes is present, the other is likely to be as well. Note there are almost never exactly 3 genes present.
 
-So, I don't really want to model this with Poisson distributions (or, we could model each gene separately with a Poisson distribution. Not sure whether that helps anyone). 
+So, I don't really want to model this with Poisson distributions (or, we could model each gene separately with a Poisson distribution. Not sure whether that helps anyone).
+
 ```{r, echo=FALSE, include=FALSE}
 ### Fit each category to its own poisson model
 # function to fit the model
@@ -135,7 +159,8 @@ We probably don't want to apply a poisson model to data that don't qualitatively
 
 # Monte Carlo simulations
 
-I think it is more robust to do a Monte Carlo simulation of variation in the ANOVA *f* ratio. 
+I think it is more robust to do a Monte Carlo simulation of variation in the ANOVA *f* ratio.
+
 ```{r}
 # There are, like, a lot of faster ways to do this
 shuf_calc_f <- function(df, nrow) {
@@ -190,7 +215,6 @@ p_reg_hist <- ggplot(f_vals, aes(x=reg.sim.f)) +
 print(p_reg_hist)
 ```
 
-
 ```{r}
 p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) + 
   geom_histogram(bins = 100) + 
@@ -199,7 +223,7 @@ p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) +
 print(p_path_hist)
 ```
 
-So: I have simulated `r format(n, scientific=FALSE, big.mark=",")` and found that, for each case, the actual measured *f* values are much, much larger than they would be likely to be if the null hypothesis were true - so much larger that we can't calculate a p value, because none of our `r format(n, scientific=FALSE, big.mark=",")` simulations captured a *f* value that big. We can say conservatively say that, in each case, p < 0.0001. 
+So: I have simulated `r format(n, scientific=FALSE, big.mark=",")` and found that, for each case, the actual measured *f* values are much, much larger than they would be likely to be if the null hypothesis were true - so much larger that we can't calculate a p value, because none of our `r format(n, scientific=FALSE, big.mark=",")` simulations captured a *f* value that big. We can say conservatively say that, in each case, p \< 0.0001.
 
 In summary:
 
@@ -214,8 +238,7 @@ actual.f.reg <- reg.f.real %>%
   format(digits = 2)
 ```
 
-
- f-value| Simulated maximum | Observed
--|-------------------|----------
-by pathology | `r sim.max.f.print.path` | `r actual.f.path`
-by region |  `r sim.max.f.print.reg` | `r actual.f.reg`
+| f-value      | Simulated maximum        | Observed          |
+|--------------|--------------------------|-------------------|
+| by pathology | `r sim.max.f.print.path` | `r actual.f.path` |
+| by region    | `r sim.max.f.print.reg`  | `r actual.f.reg`  |
