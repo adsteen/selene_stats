@@ -1,18 +1,48 @@
+read_data <- function(filename) {
+  d <- read_csv(filename)
+  
+  # Remove the "total" row if there is one
+  total.row <- str_detect(str_to_lower(d$`gene number`), "total")
+  d <- d %>% filter(!total.row)
+  
+  # Make the data set long, change the `gene number` column name to gene.count, and calulate frequency of gene count within a category
+  d <- d %>%
+    pivot_longer(cols = -1, names_to = "category", values_to = "count") %>%
+    mutate(gene.count = as.numeric(`gene number`)) %>%
+    dplyr::select(-`gene number`) %>%
+    group_by(category) %>%
+    mutate(freq = count / sum(count, na.rm = TRUE))
+  d
+}
+
+
+
 # function to recreate raw data from the frequency data
 recreate_raw <- function(d) {
   
+  # Initialize a zero-row 
   recreated_raw_data <- data.frame("category"=character(0), 
                                    "count"=double(0), 
                                    "gene.count"=double(0)) # create empty data frame to bind to
-  #fuck me, do this in the worst way possible
+  #browser()
+  # This is a really inelegant way to recreate the raw count data from the summary counts 
+  # "count" is the number of genomes that has a given number of relevant genes
+  # gene.count is the number of relevant genes that genome has
+  # So this loop runs through each row of the original data frame
+  # and appends a number of rows equal to the "count" to the new df
+  # Thus giving us a "recreated" data frame with a row for every genome observed
+  
+  # Note how I'm growing the df in the loop, very cool stuff
   for(i in 1:nrow(d)) {
     this_row <- d[i, ]
+    
     for(j in 1:this_row$count) {
       if(this_row$count > 0) {
         recreated_raw_data <- rbind(recreated_raw_data, this_row)
       }
     }
   }
+  browser()
   recreated_raw_data 
 }
 

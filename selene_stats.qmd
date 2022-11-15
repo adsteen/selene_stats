@@ -20,30 +20,20 @@ library(MASS)
 theme_set(theme_classic()) 
 
 # Load and pre-process the data by region and pathotype
-region <- read_csv("data/region.csv") %>%
-  filter(`gene number`!="TOTAL") %>%
-  pivot_longer(cols = 2:7, names_to = "category", values_to = "count") %>%
-  mutate(gene.count = as.numeric(`gene number`)) %>%
-  dplyr::select(-`gene number`) %>%
-  group_by(category) %>%
-  mutate(freq = count / sum(count, na.rm = TRUE))
-
-path <- read_csv("data/pathotype.csv") %>%
-  #filter(`gene number`!="TOTAL") %>%
-  pivot_longer(cols = 2:5, names_to = "category", values_to="count") %>%
-  mutate(gene.count = as.numeric(`gene number`)) %>%
-  dplyr::select(-`gene number`) %>%
-  group_by(category) %>%
-  mutate(freq = count / sum(count, na.rm = TRUE))
+region <- read_data("data/region.csv")
+path <- read_data("data/pathotype.csv")
 
 # I need to recreate the raw data to do an anova
 # I wrote some *very* ugly code to do this, so I hid it in a separate file
 source("R/recreate_raw_data.R")
 
+crap.loop.time <- system.time({
+  raw_region_data <- recreate_raw(region) %>%
+  arrange(category, gene.count) # makes life easy to arrange df by category adn then gene count
+raw_path_data <- recreate_raw(path) %>%
+  arrange(category)
+})
 
-raw_region_data <- recreate_raw(region) %>%
-  arrange(category) # this appears to have worked
-raw_path_data <- recreate_raw(path)
 
 raw_plot <- function(df) {
   p <- ggplot(df, aes(x=category, y=gene.count)) + 
