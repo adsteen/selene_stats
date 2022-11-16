@@ -71,11 +71,11 @@ three options:
 
 ![](selene_stats_files/figure-gfm/raw_data_plot_matrix-1.png)
 
-One more attempt
+One more attempt:
 
 ``` r
-p_bar2_reg <- barplot_2(raw_region_data)
-p_bar2_path <- barplot_2(raw_path_data)
+p_bar2_reg <- barplot_2(raw_region_data) 
+p_bar2_path <- barplot_2(raw_path_data) 
 cowplot::plot_grid(p_bar2_reg, p_bar2_path, nrow=1)
 ```
 

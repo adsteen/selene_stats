@@ -70,9 +70,14 @@ get_lambda <- function(fit_obj) {
 }
 
 barplot_2 <- function(df) {
+  max.num.levels <- max(df$gene.count, na.rm=TRUE)
+  df <- df %>% 
+    mutate(gene.count = factor(gene.count, levels=0:max.num.levels))
+  
   p <- ggplot(df, aes(x=category, y=freq)) +
-    geom_bar(aes(fill=as.factor(gene.count)), position="dodge", stat="identity") + 
-    scale_fill_discrete(name="gene number") + 
+    geom_bar(aes(fill=gene.count), 
+             position="dodge", stat="identity", colour="black", linewidth=0.1) + 
+    scale_fill_brewer(name="gene number", type="seq") + 
     scale_y_continuous(name="frequency", labels = scales::percent) + 
     theme(axis.text.x = element_text(angle=-45, hjust=0))
   p

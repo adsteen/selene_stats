@@ -72,10 +72,10 @@ cowplot::plot_grid(p_region, p_path,
                    p_reg_bar, p_path_bar,
                    nrow=3)
 ```
-One more attempt
-```{r raw_data_barplots_v2}
-p_bar2_reg <- barplot_2(raw_region_data)
-p_bar2_path <- barplot_2(raw_path_data)
+One more attempt:
+```{r raw_data_barplots_v2, message=FALSE}
+p_bar2_reg <- barplot_2(raw_region_data) 
+p_bar2_path <- barplot_2(raw_path_data) 
 cowplot::plot_grid(p_bar2_reg, p_bar2_path, nrow=1)
 ```
 
