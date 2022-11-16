@@ -18,32 +18,20 @@ reasonable.
 library(tidyverse)
 library(MASS)
 theme_set(theme_classic()) 
-
-# Load and pre-process the data by region and pathotype
-region <- read_csv("data/region.csv") %>%
-  filter(`gene number`!="TOTAL") %>%
-  pivot_longer(cols = 2:7, names_to = "category", values_to = "count") %>%
-  mutate(gene.count = as.numeric(`gene number`)) %>%
-  dplyr::select(-`gene number`) %>%
-  group_by(category) %>%
-  mutate(freq = count / sum(count, na.rm = TRUE))
-
-path <- read_csv("data/pathotype.csv") %>%
-  #filter(`gene number`!="TOTAL") %>%
-  pivot_longer(cols = 2:5, names_to = "category", values_to="count") %>%
-  mutate(gene.count = as.numeric(`gene number`)) %>%
-  dplyr::select(-`gene number`) %>%
-  group_by(category) %>%
-  mutate(freq = count / sum(count, na.rm = TRUE))
-
-# I need to recreate the raw data to do an anova
-# I wrote some *very* ugly code to do this, so I hid it in a separate file
 source("R/recreate_raw_data.R")
 
+# Load and pre-process the data by region and pathotype
+region <- read_gene_freq_data("data/region.csv")
+path <- read_gene_freq_data("data/pathotype.csv")
 
-raw_region_data <- recreate_raw(region) %>%
-  arrange(category) # this appears to have worked
-raw_path_data <- recreate_raw(path)
+# Recreate the raw data from the summary data I was given
+crap.loop.time <- system.time({
+  raw_region_data <- recreate_raw(region) %>%
+  arrange(category, gene.count) # makes life easy to arrange df by category adn then gene count
+raw_path_data <- recreate_raw(path) %>%
+  arrange(category)
+})
+
 
 raw_plot <- function(df) {
   p <- ggplot(df, aes(x=category, y=gene.count)) + 
@@ -81,7 +69,17 @@ p_path_bar <- raw_bar_plot(raw_path_data)
 I’m not really sure what the best way to display these is, so I’m giving
 three options:
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-4-1.png)
+![](selene_stats_files/figure-gfm/raw_data_plot_matrix-1.png)
+
+One more attempt
+
+``` r
+p_bar2_reg <- barplot_2(raw_region_data)
+p_bar2_path <- barplot_2(raw_path_data)
+cowplot::plot_grid(p_bar2_reg, p_bar2_path, nrow=1)
+```
+
+![](selene_stats_files/figure-gfm/raw_data_barplots_v2-1.png)
 
 I don’t see obvious differences in distribution, but this is why we do
 statistics I suppose.
@@ -112,7 +110,7 @@ distributed. A good way to do that is via a QQ plot. The
 plot(region_model, which=2) 
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-8-1.png)
+![](selene_stats_files/figure-gfm/lm_by_region_QQ-1.png)
 
 Oof, that’s pretty grim. I’d say we these residuals are non-normally
 distributed enough that I don’t think this is a great model.
@@ -142,7 +140,7 @@ Again, significant differences among pathotypes.
 plot(path_model, which=2)
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-12-1.png)
+![](selene_stats_files/figure-gfm/lm_by_path_QQ-1.png)
 
 Same situation here. The QQ-plot is sufficiently
 not-like-a-straight-line that I don’t really want to interpret the p
@@ -170,7 +168,7 @@ ggplot(d, aes(x=gene.count, y=count)) +
   facet_wrap(~category, scale="free_y")
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-14-1.png)
+![](selene_stats_files/figure-gfm/poisson_plots-1.png)
 
 **THESE ARE NOT POISSON-LOOKING DATA**. I’m pretty sure that part of the
 issue is there is correlation between the two genes in terms of whether
@@ -185,7 +183,7 @@ whether that helps anyone).
 ## Poisson summary
 
 We probably don’t want to apply a poisson model to data that don’t
-qualitatively look poisson-distributed, much as I like the idea o fusing
+qualitatively look poisson-distributed, much as I like the idea of using
 those kinds of distributions.
 
 # Monte Carlo simulations
@@ -195,16 +193,7 @@ the ANOVA *f* ratio.
 
 ``` r
 # There are, like, a lot of faster ways to do this
-shuf_calc_f <- function(df, nrow) {
-  df <- df %>% 
-    ungroup() %>%
-    mutate(shuf.cat = sample(category, size = nrow, replace=TRUE))
-  df
-  
-  m <- aov(gene.count ~ shuf.cat, data = df)
-  f <- summary(m)[[1]][1,4]
-  f
-}
+
 
 n <- 10000
 nrow.reg <- nrow(region)
@@ -215,14 +204,14 @@ path.f.vec <- vector("double", n)
 set.seed(512)
 region.loop.time <- system.time({
   for(i in 1:n) {
-  reg.f.vec[i] <- shuf_calc_f(region, nrow.reg)
+  reg.f.vec[i] <- shuf_calc_f(raw_region_data)
 }
 })
 
 set.seed(2112)
 path.loop.time <- system.time({
   for(i in 1:n) {
-  path.f.vec[i] <- shuf_calc_f(path, nrow.path)
+  path.f.vec[i] <- shuf_calc_f(raw_path_data)
 }
 })
 # This takes ~22 sec per loop on my system
@@ -248,7 +237,7 @@ p_reg_hist <- ggplot(f_vals, aes(x=reg.sim.f)) +
 print(p_reg_hist)
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-22-1.png)
+![](selene_stats_files/figure-gfm/sim_f_val_by_region-1.png)
 
 ``` r
 p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) + 
@@ -258,7 +247,7 @@ p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) +
 print(p_path_hist)
 ```
 
-![](selene_stats_files/figure-gfm/unnamed-chunk-24-1.png)
+![](selene_stats_files/figure-gfm/sim_f_val_by_path-1.png)
 
 So: I have simulated 10,000 and found that, for each case, the actual
 measured *f* values are much, much larger than they would be likely to
@@ -271,5 +260,5 @@ In summary:
 
 | f-value      | Simulated maximum | Observed |
 |--------------|-------------------|----------|
-| by pathology | 17                | 47       |
-| by region    | 8.1               | 9.2      |
+| by pathology | 6.5               | 47       |
+| by region    | 6.7               | 9.2      |
