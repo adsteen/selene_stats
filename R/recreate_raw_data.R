@@ -1,4 +1,4 @@
-read_data <- function(filename) {
+read_gene_freq_data <- function(filename) {
   d <- read_csv(filename)
   
   # Remove the "total" row if there is one
@@ -11,7 +11,8 @@ read_data <- function(filename) {
     mutate(gene.count = as.numeric(`gene number`)) %>%
     dplyr::select(-`gene number`) %>%
     group_by(category) %>%
-    mutate(freq = count / sum(count, na.rm = TRUE))
+    mutate(freq = count / sum(count, na.rm = TRUE)) %>%
+    arrange(category, count)
   d
 }
 
@@ -42,7 +43,6 @@ recreate_raw <- function(d) {
       }
     }
   }
-  browser()
   recreated_raw_data 
 }
 
@@ -68,3 +68,32 @@ fit_poisson <- function(df) {
 get_lambda <- function(fit_obj) {
   fit_obj$estimate
 }
+
+barplot_2 <- function(df) {
+  p <- ggplot(df, aes(x=category, y=freq)) +
+    geom_bar(aes(fill=as.factor(gene.count)), position="dodge", stat="identity") + 
+    scale_fill_discrete(name="gene number") + 
+    scale_y_continuous(name="frequency", labels = scales::percent) + 
+    theme(axis.text.x = element_text(angle=-45, hjust=0))
+  p
+}
+
+shuf_calc_f <- function(df) {
+  nrow.df <- nrow(df)
+  df <- df %>% 
+    ungroup() %>%
+    mutate(shuf.cat = sample(category, size = nrow.df, replace=FALSE))
+  df
+  #browser()
+  #f <- tryCatch({
+    m <- aov(gene.count ~ shuf.cat, data = df)
+    f <- summary(m)[[1]][1,4]
+  #}, 
+  #  error=function(e) NA
+  #)
+  #m <- aov(gene.count ~ shuf.cat, data = df)
+  
+  f
+}
+
+

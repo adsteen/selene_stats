@@ -133,24 +133,19 @@ path.f.real <- summary(aov(tisB_path_model))[[1]][1,4]
 ## f values by region
 
 ``` r
-p_reg_hist <- ggplot(f_vals, aes(x=log10(reg.sim.f))) + 
+p_region_hist <- ggplot(f_vals, aes(x=reg.sim.f)) + 
   geom_histogram(bins = 100) + 
-  geom_vline(xintercept = log10(reg.f.real), color="red")  + 
+  geom_vline(xintercept = reg.f.real, color="red") + 
+  xlab("simulated f values") + 
   ggtitle("data by region")
-print(p_reg_hist)
+print(p_region_hist)
 ```
 
-![](tisB_istR_analysis_files/figure-gfm/plot_region_histogram-1.png)
+![](tisB_istR_analysis_files/figure-gfm/unnamed-chunk-2-1.png)
 
-The distribution of f values here is pretty weird: note the log scale.
-It is being caused by the fact that there aren’t many ways to permute
-the labels on the data we have, so we end up with 10000 unique f vals
-(despite 10^{4} simulations). Many of these have odd combinations: for
-instance if each region gets *either* 0 gene copies or 2 gene copies,
-but not a mix of both, the f value will be extreme.
-
-So I’m not very satisfied by this simulation. However, our observed f
-value is greater than 100, indicating a p value of 0.
+Here the observed f value is greater than 10000 of the 10^{4}simulated
+values (i.e., all of them) so again we can say that the differences
+among types are significant at a level of p \< 10^{-4}.
 
 ## f values by pathotype
 
@@ -164,22 +159,8 @@ print(p_path_hist)
 
 ![](tisB_istR_analysis_files/figure-gfm/plot_pathotype_histogram-1.png)
 
-``` r
-f_clean <- f_vals%>%
-  filter(is.finite(path.sim.f),
-         path.sim.f > 1e-10,
-         path.sim.f < 1e10)
-
-
-p_path_hist_clean <- ggplot(f_vals %>%
-                              filter(is.finite(path.sim.f),
-                                     path.sim.f > 1e-10,
-                                     path.sim.f < 1e10), 
-                            aes(x=path.sim.f)) + 
-  geom_histogram(bins = 100) + 
-  geom_vline(xintercept = path.f.real, color="red") + 
-  ggtitle("data by pathology")
-print(p_path_hist_clean)
-```
-
-![](tisB_istR_analysis_files/figure-gfm/unnamed-chunk-2-1.png)
+Same situation here, and the difference between the observed f value and
+the simulated ones is more dramatic. (That’s not to say that the
+difference is larger, or more real in some sense: just that it is even
+less likely that random data would give us an f value as large as we see
+here).
