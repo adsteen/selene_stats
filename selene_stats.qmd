@@ -25,18 +25,14 @@ region <- read_gene_freq_data("data/region.csv")
 path <- read_gene_freq_data("data/pathotype.csv")
 
 # Recreate the raw data from the summary data I was given
-crap.loop.time <- system.time({
-  raw_region_data <- recreate_raw(region) %>%
+raw_region_data <- recreate_raw(region) %>%
   arrange(category, gene.count) # makes life easy to arrange df by category adn then gene count
 raw_path_data <- recreate_raw(path) %>%
   arrange(category)
-})
-
 
 raw_plot <- function(df) {
   p <- ggplot(df, aes(x=category, y=gene.count)) + 
   geom_boxplot() + 
-  #geom_point(position=position_jitter(height = 0.3), alpha = 0.5) + 
   theme_classic() + 
   theme(axis.text.x = element_text(angle=-45, hjust=0))
   p
