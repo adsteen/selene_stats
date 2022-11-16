@@ -1,0 +1,125 @@
+---
+title: "tisB-istR analysis"
+format: gfm
+editor: visual
+---
+
+# Analysis of tisB-istR genes
+
+Following the analysis shown in `selene_stats.md`, I'm doing the same analysis with a different set of genes.
+
+I'll skip the parametric models and go straight to the ANOVA with Monte Carlo that I described previously.
+
+```{r setup, message=FALSE}
+library(tidyverse)
+theme_set(theme_classic())
+source("R/recreate_raw_data.R")
+
+
+tisB_region <- read_gene_freq_data("data/tisB_istR_region.csv") 
+tisB_path <- read_gene_freq_data("data/tisB_istR_path.csv") 
+
+
+crap.loop.time <- system.time({ # takes about a minute on my machine
+  raw_tisB_region_data <- recreate_raw(tisB_region) #%>%
+  #arrange(category, gene.count)# This is running really slowly,
+# Issues a message about data.table, whcih I thought was not loaded. Hmmm....
+  raw_tisB_path_data <- recreate_raw(tisB_path)# %>%
+  #arrange(category, gene.count)
+})
+
+
+p_region_tisB <- raw_plot(tisB_region)
+p_path_tisB <- raw_plot(tisB_path)
+
+# Really a bar graph will do fine here
+p_tisB_region_b <- barplot_2(tisB_region) + 
+  scale_fill_manual(name="gene number", values = c("#517c96", "#8D2048"))
+p_tisB_path_b <- barplot_2(tisB_path) +
+   scale_fill_manual(name="gene number", values = c("#517c96", "#8D2048"))
+
+
+cowplot::plot_grid(p_tisB_path_b, p_tisB_region_b)
+```
+Now we just need to do the analysis of whetehr those distributions are different among categories.
+
+```{r create_linear_models}
+tisB_path_model <- lm(gene.count ~ category, data=raw_tisB_path_data)
+summary(tisB_path_model)
+```
+```{r}
+tisB_region_model <- lm(gene.count ~ category, data=raw_tisB_region_data)
+summary(tisB_region_model)
+```
+
+```{r monte_carlo}
+n <- 10000
+#nrow.reg <- nrow(tisB_region)
+#nrow.path <- nrow(tisB_path)
+reg.f.vec <- vector("double", n)
+path.f.vec <- vector("double", n)
+
+set.seed(3230)
+region.loop.time <- system.time({
+  for(i in 1:n) {
+  reg.f.vec[i] <- shuf_calc_f(raw_tisB_region_data)
+}
+})
+set.seed(2112)
+  for(i in 1:n) {
+  path.f.vec[i] <- shuf_calc_f(raw_tisB_path_data)
+  }
+
+# Put simulated f vals in a data frame, and pull out observed f values from the model
+f_vals <- data.frame(reg.sim.f = reg.f.vec,
+                     path.sim.f = path.f.vec)
+reg.f.real <- summary(aov(tisB_region_model))[[1]][1,4]
+path.f.real <- summary(aov(tisB_path_model))[[1]][1,4]
+
+```
+
+## f values by region
+```{r plot_region_histogram}
+p_reg_hist <- ggplot(f_vals, aes(x=log10(reg.sim.f))) + 
+  geom_histogram(bins = 100) + 
+  geom_vline(xintercept = log10(reg.f.real), color="red")  + 
+  ggtitle("data by region")
+print(p_reg_hist)
+```
+The distribution of f values here is pretty weird: note the log scale. It is being caused by the fact that there aren't many ways to permute the labels on the data we have, so we end up with `r length(unique(f_vals$reg.sim.f))` unique f vals (despite `r n` simulations). Many of these have odd combinations: for instance if each region gets *either* 0 gene copies or 2 gene copies, but not a mix of both, the f value will be extreme. 
+
+So I'm not very satisfied by this simulation. However, our observed f value is greater than `r round(100-100*sum(f_vals$reg.sim.f > reg.f.real)/nrow(f_vals), digits=2)`, indicating a p value of `r round(sum(f_vals$reg.sim.f > reg.f.real)/nrow(f_vals), digits=4)`.
+
+## f values by pathotype
+
+```{r plot_pathotype_histogram, warning=FALSE}
+p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) + 
+  geom_histogram(bins = 100) + 
+  geom_vline(xintercept = path.f.real, color="red") + 
+  ggtitle("data by pathology")
+print(p_path_hist)
+```
+
+
+```{r}
+f_clean <- f_vals%>%
+  filter(is.finite(path.sim.f),
+         path.sim.f > 1e-10,
+         path.sim.f < 1e10)
+
+
+p_path_hist_clean <- ggplot(f_vals %>%
+                              filter(is.finite(path.sim.f),
+                                     path.sim.f > 1e-10,
+                                     path.sim.f < 1e10), 
+                            aes(x=path.sim.f)) + 
+  geom_histogram(bins = 100) + 
+  geom_vline(xintercept = path.f.real, color="red") + 
+  ggtitle("data by pathology")
+print(p_path_hist_clean)
+```
+
+
+
+
+
