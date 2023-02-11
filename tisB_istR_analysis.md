@@ -41,7 +41,7 @@ p_tisB_path_b <- barplot_2(tisB_path) +
 cowplot::plot_grid(p_tisB_path_b, p_tisB_region_b)
 ```
 
-![](tisB_istR_analysis_files/figure-gfm/setup-1.png)
+![](tisB_istR_analysis_files/figure-commonmark/setup-1.png)
 
 Now we just need to do the analysis of whetehr those distributions are
 different among categories.
@@ -141,7 +141,7 @@ p_region_hist <- ggplot(f_vals, aes(x=reg.sim.f)) +
 print(p_region_hist)
 ```
 
-![](tisB_istR_analysis_files/figure-gfm/unnamed-chunk-2-1.png)
+![](tisB_istR_analysis_files/figure-commonmark/unnamed-chunk-2-1.png)
 
 Here the observed f value is greater than 10000 of the 10^{4}simulated
 values (i.e., all of them) so again we can say that the differences
@@ -157,7 +157,7 @@ p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) +
 print(p_path_hist)
 ```
 
-![](tisB_istR_analysis_files/figure-gfm/plot_pathotype_histogram-1.png)
+![](tisB_istR_analysis_files/figure-commonmark/plot_pathotype_histogram-1.png)
 
 Same situation here, and the difference between the observed f value and
 the simulated ones is more dramatic. (That’s not to say that the

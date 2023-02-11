@@ -65,7 +65,7 @@ p_path_bar <- raw_bar_plot(raw_path_data)
 I’m not really sure what the best way to display these is, so I’m giving
 three options:
 
-![](selene_stats_files/figure-gfm/raw_data_plot_matrix-1.png)
+![](selene_stats_files/figure-commonmark/raw_data_plot_matrix-1.png)
 
 One more attempt:
 
@@ -75,10 +75,7 @@ p_bar2_path <- barplot_2(raw_path_data)
 cowplot::plot_grid(p_bar2_reg, p_bar2_path, nrow=1)
 ```
 
-![](selene_stats_files/figure-gfm/raw_data_barplots_v2-1.png)
-
-I don’t see obvious differences in distribution, but this is why we do
-statistics I suppose.
+![](selene_stats_files/figure-commonmark/raw_data_barplots_v2-1.png)
 
 Is a linear model (ANOVA) good for these data? Specifically: ANOVA is
 fairly robust to unbalanced designs and to heteroskedasticity, but not
@@ -106,7 +103,7 @@ distributed. A good way to do that is via a QQ plot. The
 plot(region_model, which=2) 
 ```
 
-![](selene_stats_files/figure-gfm/lm_by_region_QQ-1.png)
+![](selene_stats_files/figure-commonmark/lm_by_region_QQ-1.png)
 
 Oof, that’s pretty grim. I’d say we these residuals are non-normally
 distributed enough that I don’t think this is a great model.
@@ -136,7 +133,7 @@ Again, significant differences among pathotypes.
 plot(path_model, which=2)
 ```
 
-![](selene_stats_files/figure-gfm/lm_by_path_QQ-1.png)
+![](selene_stats_files/figure-commonmark/lm_by_path_QQ-1.png)
 
 Same situation here. The QQ-plot is sufficiently
 not-like-a-straight-line that I don’t really want to interpret the p
@@ -164,7 +161,7 @@ ggplot(d, aes(x=gene.count, y=count)) +
   facet_wrap(~category, scale="free_y")
 ```
 
-![](selene_stats_files/figure-gfm/poisson_plots-1.png)
+![](selene_stats_files/figure-commonmark/poisson_plots-1.png)
 
 **THESE ARE NOT POISSON-LOOKING DATA**. I’m pretty sure that part of the
 issue is there is correlation between the two genes in terms of whether
@@ -233,7 +230,7 @@ p_reg_hist <- ggplot(f_vals, aes(x=reg.sim.f)) +
 print(p_reg_hist)
 ```
 
-![](selene_stats_files/figure-gfm/sim_f_val_by_region-1.png)
+![](selene_stats_files/figure-commonmark/sim_f_val_by_region-1.png)
 
 ``` r
 p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) + 
@@ -243,7 +240,7 @@ p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) +
 print(p_path_hist)
 ```
 
-![](selene_stats_files/figure-gfm/sim_f_val_by_path-1.png)
+![](selene_stats_files/figure-commonmark/sim_f_val_by_path-1.png)
 
 So: I have simulated 10,000 and found that, for each case, the actual
 measured *f* values are much, much larger than they would be likely to
@@ -258,3 +255,21 @@ In summary:
 |--------------|-------------------|----------|
 | by pathology | 6.5               | 47       |
 | by region    | 6.7               | 9.2      |
+
+# Post-hoc comparisons
+
+So it is always nice to do a post-hoc analysis, to identify which groups
+are significantly different from each other.
+
+Normally I would do a Tukey HSD test, but that’s not appropriate for
+unbalanced data. Instead, we can use the `multcomp::glht()` function
+(“General Linear HypoThesis”), which does a test based on the
+multivariate *t* distribution. This still assumes normality of residuals
+and homoskedasticity, but this is an OK baseline.
+
+``` r
+region_summ <- summ_for_dotplot(raw_region_data)
+path_summ <- summ_for_dotplot(raw_path_data)
+#p_dotplot_region_summ <- + 
+#  ggsignif::geom_signif(comparisons = list(c("North America", "Europe")), annotations = "*")
+```

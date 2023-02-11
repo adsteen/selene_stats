@@ -101,4 +101,18 @@ shuf_calc_f <- function(df) {
   f
 }
 
+# Summarise raw data for dot-standard deviation plots
+summ_for_dotplot <- function(df) {
+  df %>%
+    ungroup() %>%
+    group_by(category) %>%
+    summarise(mean.gene.count = mean(gene.count),
+              sd.gene.count = sd(gene.count, 0.25)) %>%
+    mutate(cat.ordered = fct_reorder(category, mean.gene.count, mean, .desc=TRUE))
+}
 
+dotplot <- function(df) {
+  ggplot(region_summ, aes(x=cat.ordered, y=mean.gene.count)) + 
+    geom_pointrange(aes(ymin=mean.gene.count-sd.gene.count,
+                        ymax=mean.gene.count+sd.gene.count)) 
+}

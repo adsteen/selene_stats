@@ -75,7 +75,8 @@ p_bar2_path <- barplot_2(raw_path_data)
 cowplot::plot_grid(p_bar2_reg, p_bar2_path, nrow=1)
 ```
 
-I don't see obvious differences in distribution, but this is why we do statistics I suppose.
+
+
 
 Is a linear model (ANOVA) good for these data? Specifically: ANOVA is fairly robust to unbalanced designs and to heteroskedasticity, but not to hetereoskedastic data in an unbalanced design. So let's check the heteroskedasticity.
 
@@ -229,3 +230,14 @@ actual.f.reg <- reg.f.real %>%
 |--------------|--------------------------|-------------------|
 | by pathology | `r sim.max.f.print.path` | `r actual.f.path` |
 | by region    | `r sim.max.f.print.reg`  | `r actual.f.reg`  |
+
+# Post-hoc comparisons
+So it is always nice to do a post-hoc analysis, to identify which groups are significantly different from each other. 
+
+Normally I would do a Tukey HSD test, but that's not appropriate for unbalanced data. Instead, we can use the `multcomp::glht()` function ("General Linear HypoThesis"), which does a test based on the multivariate *t* distribution. This still assumes normality of residuals and homoskedasticity, but this is an OK baseline.  
+```{r still_wrangling_with_visualisation}
+region_summ <- summ_for_dotplot(raw_region_data)
+path_summ <- summ_for_dotplot(raw_path_data)
+#p_dotplot_region_summ <- + 
+#  ggsignif::geom_signif(comparisons = list(c("North America", "Europe")), annotations = "*")
+```
