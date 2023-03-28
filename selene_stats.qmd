@@ -14,25 +14,41 @@ The purpose of this analysis is to assess potential differences in the distribut
 
 A simple way to do this would be an ANOVA. Let's try and check whether the distributions of residuals and stability of variances look reasonable.
 
-```{r setup, message=FALSE}
+```{r, message=FALSE}
 library(tidyverse)
 library(MASS)
 theme_set(theme_classic()) 
-source("R/recreate_raw_data.R")
 
 # Load and pre-process the data by region and pathotype
-region <- read_gene_freq_data("data/region.csv")
-path <- read_gene_freq_data("data/pathotype.csv")
+region <- read_csv("data/region.csv") %>%
+  filter(`gene number`!="TOTAL") %>%
+  pivot_longer(cols = 2:7, names_to = "category", values_to = "count") %>%
+  mutate(gene.count = as.numeric(`gene number`)) %>%
+  dplyr::select(-`gene number`) %>%
+  group_by(category) %>%
+  mutate(freq = count / sum(count, na.rm = TRUE))
 
-# Recreate the raw data from the summary data I was given
+path <- read_csv("data/pathotype.csv") %>%
+  #filter(`gene number`!="TOTAL") %>%
+  pivot_longer(cols = 2:5, names_to = "category", values_to="count") %>%
+  mutate(gene.count = as.numeric(`gene number`)) %>%
+  dplyr::select(-`gene number`) %>%
+  group_by(category) %>%
+  mutate(freq = count / sum(count, na.rm = TRUE))
+
+# I need to recreate the raw data to do an anova
+# I wrote some *very* ugly code to do this, so I hid it in a separate file
+source("R/recreate_raw_data.R")
+
+
 raw_region_data <- recreate_raw(region) %>%
-  arrange(category, gene.count) # makes life easy to arrange df by category adn then gene count
-raw_path_data <- recreate_raw(path) %>%
-  arrange(category)
+  arrange(category) # this appears to have worked
+raw_path_data <- recreate_raw(path)
 
 raw_plot <- function(df) {
   p <- ggplot(df, aes(x=category, y=gene.count)) + 
   geom_boxplot() + 
+  #geom_point(position=position_jitter(height = 0.3), alpha = 0.5) + 
   theme_classic() + 
   theme(axis.text.x = element_text(angle=-45, hjust=0))
   p
@@ -61,35 +77,30 @@ p_path_line <- raw_line_plot(raw_path_data)
 p_reg_bar <- raw_bar_plot(raw_region_data)
 p_path_bar <- raw_bar_plot(raw_path_data)
 ```
+
 I'm not really sure what the best way to display these is, so I'm giving three options:
-```{r raw_data_plot_matrix, plot=TRUE, echo=FALSE, fig.height=7, fig.width=8}
+
+```{r, plot=TRUE, echo=FALSE, fig.height=7, fig.width=8}
 cowplot::plot_grid(p_region, p_path,
                    p_reg_line, p_path_line,
                    p_reg_bar, p_path_bar,
                    nrow=3)
 ```
-One more attempt:
-```{r raw_data_barplots_v2, message=FALSE}
-p_bar2_reg <- barplot_2(raw_region_data) 
-p_bar2_path <- barplot_2(raw_path_data) 
-cowplot::plot_grid(p_bar2_reg, p_bar2_path, nrow=1)
-```
 
-
-
+I don't see obvious differences in distribution, but this is why we do statistics I suppose.
 
 Is a linear model (ANOVA) good for these data? Specifically: ANOVA is fairly robust to unbalanced designs and to heteroskedasticity, but not to hetereoskedastic data in an unbalanced design. So let's check the heteroskedasticity.
 
 ### Linear model for regions
 
-```{r lm_by_region}
+```{r}
 region_model <- lm(gene.count ~ category, data=raw_region_data)
 summary(aov(region_model))
 ```
 
 This model finds signficant differences among regions. But before we take this too seriously, let's check whether the residuals are normally distributed. A good way to do that is via a QQ plot. The
 
-```{r lm_by_region_QQ}
+```{r}
 plot(region_model, which=2) 
 ```
 
@@ -101,14 +112,14 @@ We could do a Tukey post-hoc analysis to determine which categories are signific
 
 ### Linear model for pathotypes
 
-```{r lm_by_path}
+```{r}
 path_model <- lm(gene.count ~ category, data=raw_path_data)
 summary(aov(path_model))
 ```
 
 Again, significant differences among pathotypes.
 
-```{r lm_by_path_QQ}
+```{r}
 plot(path_model, which=2)
 ```
 
@@ -118,7 +129,7 @@ Same situation here. The QQ-plot is sufficiently not-like-a-straight-line that I
 
 I propose that we can think of gene distribution as a poisson process, where different values of $\lambda$ indicate different probabilities of the gene being "handed out". If this is the case, we can assess whether there are difference in lambda among regions or pathotypes - but first we need to assess whether the data are, in fact, poisson-distributed. We'll simply load the data, fit it to a poisson distribution, and see whether the fit looks good. I think in this case a qualitative assessment is at least as good as some kind fo statistical test of goodness-of-fit.
 
-```{r poisson_plots, message = FALSE, warning=FALSE}
+```{r, message = FALSE, warning=FALSE}
 d <- rbind(region %>% mutate(type="region"),
            path %>% mutate(type="path")) %>%
   mutate(category=factor(category, levels = c("Africa","Asia", "Europe", "North America", "Oceania", "South America", "pa", "healthy", "intestinal disease", "urinary disease"), ordere=TRUE))
@@ -132,7 +143,7 @@ ggplot(d, aes(x=gene.count, y=count)) +
 
 So, I don't really want to model this with Poisson distributions (or, we could model each gene separately with a Poisson distribution. Not sure whether that helps anyone).
 
-```{r fit_poisson, echo=FALSE, include=FALSE}
+```{r, echo=FALSE, include=FALSE}
 ### Fit each category to its own poisson model
 # function to fit the model
 pois_fit <- function(df) {
@@ -151,15 +162,24 @@ d_nest <- d %>%
 
 ## Poisson summary
 
-We probably don't want to apply a poisson model to data that don't qualitatively look poisson-distributed, much as I like the idea of using those kinds of distributions.
+We probably don't want to apply a poisson model to data that don't qualitatively look poisson-distributed, much as I like the idea o fusing those kinds of distributions.
 
 # Monte Carlo simulations
 
 I think it is more robust to do a Monte Carlo simulation of variation in the ANOVA *f* ratio.
 
-```{r monte_carlo}
+```{r}
 # There are, like, a lot of faster ways to do this
-
+shuf_calc_f <- function(df, nrow) {
+  df <- df %>% 
+    ungroup() %>%
+    mutate(shuf.cat = sample(category, size = nrow, replace=TRUE))
+  df
+  
+  m <- aov(gene.count ~ shuf.cat, data = df)
+  f <- summary(m)[[1]][1,4]
+  f
+}
 
 n <- 10000
 nrow.reg <- nrow(region)
@@ -170,14 +190,14 @@ path.f.vec <- vector("double", n)
 set.seed(512)
 region.loop.time <- system.time({
   for(i in 1:n) {
-  reg.f.vec[i] <- shuf_calc_f(raw_region_data)
+  reg.f.vec[i] <- shuf_calc_f(region, nrow.reg)
 }
 })
 
 set.seed(2112)
 path.loop.time <- system.time({
   for(i in 1:n) {
-  path.f.vec[i] <- shuf_calc_f(raw_path_data)
+  path.f.vec[i] <- shuf_calc_f(path, nrow.path)
 }
 })
 # This takes ~22 sec per loop on my system
@@ -186,7 +206,7 @@ f_vals <- data.frame(reg.sim.f = reg.f.vec,
                      path.sim.f = path.f.vec)
 ```
 
-```{r get_real_f_vals}
+```{r}
 # Pull out actual f values
 reg.f.real <- summary(aov(region_model))[[1]][1,4]
 path.f.real <- summary(aov(path_model))[[1]][1,4]
@@ -194,8 +214,7 @@ path.f.real <- summary(aov(path_model))[[1]][1,4]
 
 How do the real f values compare to the simulated, null-hypothesis values?
 
-
-```{r sim_f_val_by_region}
+```{r}
 p_reg_hist <- ggplot(f_vals, aes(x=reg.sim.f)) + 
   geom_histogram(bins = 100) + 
   geom_vline(xintercept = reg.f.real, color="red")  + 
@@ -203,7 +222,7 @@ p_reg_hist <- ggplot(f_vals, aes(x=reg.sim.f)) +
 print(p_reg_hist)
 ```
 
-```{r sim_f_val_by_path}
+```{r}
 p_path_hist <- ggplot(f_vals, aes(x=path.sim.f)) + 
   geom_histogram(bins = 100) + 
   geom_vline(xintercept = path.f.real, color="red") + 
@@ -230,14 +249,3 @@ actual.f.reg <- reg.f.real %>%
 |--------------|--------------------------|-------------------|
 | by pathology | `r sim.max.f.print.path` | `r actual.f.path` |
 | by region    | `r sim.max.f.print.reg`  | `r actual.f.reg`  |
-
-# Post-hoc comparisons
-So it is always nice to do a post-hoc analysis, to identify which groups are significantly different from each other. 
-
-Normally I would do a Tukey HSD test, but that's not appropriate for unbalanced data. Instead, we can use the `multcomp::glht()` function ("General Linear HypoThesis"), which does a test based on the multivariate *t* distribution. This still assumes normality of residuals and homoskedasticity, but this is an OK baseline.  
-```{r still_wrangling_with_visualisation}
-region_summ <- summ_for_dotplot(raw_region_data)
-path_summ <- summ_for_dotplot(raw_path_data)
-#p_dotplot_region_summ <- + 
-#  ggsignif::geom_signif(comparisons = list(c("North America", "Europe")), annotations = "*")
-```
