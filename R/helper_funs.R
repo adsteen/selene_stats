@@ -133,3 +133,12 @@ dotplot <- function(df) {
     geom_pointrange(aes(ymin=mean.gene.count-sd.gene.count,
                         ymax=mean.gene.count+sd.gene.count)) 
 }
+
+# Parallelized pairwise comparisons
+t_test_func <- function(x) {
+  t.test(x[[1]], x[[2]])$statistic
+}
+# Use future_map() and combn() to apply the t_test_func() function to each unique pair of vectors
+#tic()
+#t_test_results <- future_map_dbl(combn(test_data, 2, simplify = FALSE), #t_test_func)
+#g_time <- toc()
