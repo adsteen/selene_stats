@@ -17,11 +17,12 @@ reasonable.
 ``` r
 library(tidyverse)
 library(MASS)
-theme_set(theme_classic()) 
 library(furrr)
 library(tictoc)
 library(rlang) # this is maybe needed by calculate_mean_diff
 plan(multisession)
+source("R/helper_funs.R")
+theme_set(theme_classic()) 
 
 # Read in raw zor-orz data
 region <- readxl::read_xlsx("data/FINAL data for Steen.xlsx", 
@@ -41,17 +42,6 @@ path <- readxl::read_xlsx("data/FINAL data for Steen.xlsx",
   mutate(freq = count / sum(count, na.rm = TRUE))
 
 
-# path <- read_csv("data/pathotype.csv") %>%
-#   #filter(`gene number`!="TOTAL") %>%
-#   pivot_longer(cols = 2:5, names_to = "category", values_to="count") %>%
-#   mutate(gene.count = as.numeric(`gene number`)) %>%
-#   dplyr::select(-`gene number`) %>%
-#   group_by(category) %>%
-#   mutate(freq = count / sum(count, na.rm = TRUE))
-
-# I need to recreate the raw data to do an anova
-# I wrote some *very* ugly code to do this, so I hid it in a separate file
-source("R/helper_funs.R")
 
 
 raw_region_data <- recreate_raw(region) %>%
@@ -194,56 +184,28 @@ I think it is more robust to do a Monte Carlo simulation of variation in
 the ANOVA *f* ratio.
 
 ``` r
-# There are, like, a lot of faster ways to do this
-
-n <- 1000
+# Set the number of monte carlo replicates
+n <- 10000
 nrow.reg <- nrow(region)
 nrow.path <- nrow(path)
-# reg.f.vec <- vector("double", n)
-# path.f.vec <- vector("double", n)
 
-#set.seed(512)
-# region.loop.time <- system.time({
-#   for(i in 1:n) {
-#   reg.f.vec[i] <- shuf_calc_f(region, nrow.reg)
-# }
-# })
 
 tic()
-reg.f.vec <- future_map_dbl(seq_along(1:n), shuf_calc_f, df=region, nrow=nrow.reg, 
+reg.f.vec <- future_map_dbl(seq_along(1:n), 
+                            shuf_calc_f, 
+                            df=region, nrow=nrow.reg, 
                              .options = furrr_options(seed = TRUE)) 
-path.f.vec <- future_map_dbl(seq_along(1:n), shuf_calc_f, df=path, nrow=nrow.path, 
+path.f.vec <- future_map_dbl(seq_along(1:n), 
+                             shuf_calc_f, 
+                             df=path, nrow=nrow.path, 
                              .options = furrr_options(seed = TRUE)) 
-toc()
+toc() # Runs in about 14 seconds on 6 core macbook pro; pretty sweet
 ```
 
-    2.882 sec elapsed
+    13.84 sec elapsed
 
 ``` r
-# OK, I have to ask: is this faster than map_dbl? THe time to beat is 12.37 (I know, I shoudl repeat it...)
-tic()
-reg.f.vec <- map_dbl(seq_along(1:n), shuf_calc_f, df=region, nrow=nrow.reg, 
-                             .options = furrr_options(seed = TRUE)) 
-path.f.vec <- map_dbl(seq_along(1:n), shuf_calc_f, df=path, nrow=nrow.path, 
-                             .options = furrr_options(seed = TRUE)) 
-toc() # Yep, seems like 4 times faster! Which is good, because it is trying to use 6 cores, and 6 = 4 (kind of )
-```
-
-    5.608 sec elapsed
-
-``` r
-# tic.clearlog()
-# tic()
-# path.loop.time <- system.time({
-#   for(i in 1:n) {
-#     path.f.vec[i] <- shuf_calc_f(path, nrow.path)
-#   }
-# })
-# loop.time <- toc() # serial loop is maybe ~4 times slower than parallel method
-
-
-# This takes ~22 sec per loop on my system
-
+# put the simulated f values in a data frame
 f_vals <- data.frame(reg.sim.f = reg.f.vec,
                      path.sim.f = path.f.vec)
 ```
@@ -277,10 +239,10 @@ print(p_path_hist)
 
 ![](selene_stats_files/figure-commonmark/unnamed-chunk-12-1.png)
 
-So: I have simulated 1,000 and found that, for each case, the actual
+So: I have simulated 10,000 and found that, for each case, the actual
 measured *f* values are much, much larger than they would be likely to
 be if the null hypothesis were true - so much larger that we can’t
-calculate a p value, because none of our 1,000 simulations captured a
+calculate a p value, because none of our 10,000 simulations captured a
 *f* value that big. We can say conservatively say that, in each case, p
 \< 0.0001.
 
@@ -300,62 +262,49 @@ that the studentized range distribution is replaced with the observed
 distribution of mean differences in shuffled data.
 
 ``` r
-# mean_diff <- function(x) { # analagous to 
-#   abs(mean(x[[1]], na.rm = TRUE) - mean(x[[2]], na.rm = TRUE))
-# }
-
-# path_means <- raw_path_data %>% # I feel like this is duplicative but I guess not?
-#   # I know I could calulate it from path, but it feels like it is too easy to screw that up even though it requires roughly 6th grade math
-#   group_by(category) %>%
-#   summarise(mean.gene.count = mean(gene.count, na.rm=TRUE))
-
-
-
-
-actual_path_mean_diffs <- shuf_and_calc_means(raw_path_data, shuf = FALSE) # Seems to work
-n <- 10
-null_path_mean_diffs <- future_map(seq_along(1:n), 
-                                   shuf_and_calc_means, df=raw_path_data, shuf=TRUE,
-                                   .options = furrr_options(seed = TRUE)) 
-
-# This takes the list from null_path_mean_list and turns it into a tidy data set
-null_path_distribs <- sim_list_to_df(null_path_mean_diffs, summarise = TRUE, alpha = 0.95)
-merge(null_path_distribs, actual_path_mean_diffs, by = "dif.id") %>%
-  mutate(sig.diff = case_when(mean.diff >= cutoff.diff ~ TRUE, TRUE ~ FALSE))
+# Let's make a function tocalculate actual means and then simulated means
+tic()
+n.tukey <- 1e4
+path_diffs <- monte_carlo_tukey(raw_path_data, n.tukey)
+region_diffs <- monte_carlo_tukey(raw_region_data, n.tukey)
+toc()
 ```
 
-                                  dif.id cutoff.diff  mean.diff sig.diff
-    1                 bacteremia-healthy   0.4906021 0.26840634    FALSE
-    2      bacteremia-intestinal disease   0.3444305 1.34124149     TRUE
-    3         bacteremia-urinary disease   0.4871658 0.09124721    FALSE
-    4         healthy-intestinal disease   0.3388270 1.07283515     TRUE
-    5            healthy-urinary disease   0.3867725 0.17715913    FALSE
-    6 intestinal disease-urinary disease   0.2387823 1.24999428     TRUE
+    26.41 sec elapsed
 
-Now I write a function to shuffle the data and perform the same
-calculation, and then return min and max values. (Actually I guess i
-just need the max value?)
-
-More accurately the approach here is to:
-
-- For each pair of comparisons, compare the actual mean difference to
-  the set of mean differences for shuffled data. There’s no need to
-  correct for standard error (I don’t think).
+# Results
 
 ``` r
-# shuf_and_calc_means <- function(df, shuf = FALSE) {
-#   # Shuffle data 
-#   if(shuf) {
-#     df$category <- sample(df$category, size = nrow(df), replace = TRUE)
-#   }
-#   
-#   
-#   # Calculate means
-#   means <- df %>%
-#     group_by(category) %>%
-#     summarise(mean.gene.count = mean(gene.count, na.rm = TRUE))
-#   
-#   # Calculate mean differences for each set of groups
-#   diffs <- calc_mean_diff(means)
-# }
+knitr::kable(path_diffs)
 ```
+
+| diff.id                            | cutoff.diff | mean.diff | sig.diff |
+|:-----------------------------------|------------:|----------:|:---------|
+| bacteremia-healthy                 |   0.5587669 | 0.2684063 | FALSE    |
+| bacteremia-intestinal disease      |   0.4532159 | 1.3412415 | TRUE     |
+| bacteremia-urinary disease         |   0.5030303 | 0.0912472 | FALSE    |
+| healthy-intestinal disease         |   0.3741021 | 1.0728352 | TRUE     |
+| healthy-urinary disease            |   0.4214398 | 0.1771591 | FALSE    |
+| intestinal disease-urinary disease |   0.2808828 | 1.2499943 | TRUE     |
+
+``` r
+knitr::kable(region_diffs)
+```
+
+| diff.id                     | cutoff.diff | mean.diff | sig.diff |
+|:----------------------------|------------:|----------:|:---------|
+| Africa-Asia                 |   0.5776791 | 0.0325988 | FALSE    |
+| Africa-Europe               |   0.5735074 | 0.3538880 | FALSE    |
+| Africa-North America        |   0.5769871 | 0.3771936 | FALSE    |
+| Africa-Oceania              |   0.7333654 | 0.8914286 | TRUE     |
+| Africa-South America        |   0.8333333 | 0.7085714 | FALSE    |
+| Asia-Europe                 |   0.1664823 | 0.3864868 | TRUE     |
+| Asia-North America          |   0.1718153 | 0.4097924 | TRUE     |
+| Asia-Oceania                |   0.4890474 | 0.9240273 | TRUE     |
+| Asia-South America          |   0.6278979 | 0.6759727 | TRUE     |
+| Europe-North America        |   0.1566517 | 0.0233056 | FALSE    |
+| Europe-Oceania              |   0.4834348 | 0.5375405 | TRUE     |
+| Europe-South America        |   0.6284588 | 1.0624595 | TRUE     |
+| North America-Oceania       |   0.4911992 | 0.5142350 | TRUE     |
+| North America-South America |   0.6277316 | 1.0857650 | TRUE     |
+| Oceania-South America       |   0.7660842 | 1.6000000 | TRUE     |
