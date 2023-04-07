@@ -100,23 +100,17 @@ barplot_2 <- function(df) {
   p
 }
 
-shuf_calc_f <- function(df) {
-  nrow.df <- nrow(df)
+shuf_calc_f <- function(df, nrow, ...) {
   df <- df %>% 
     ungroup() %>%
-    mutate(shuf.cat = sample(category, size = nrow.df, replace=FALSE))
+    mutate(shuf.cat = sample(category, size = nrow, replace=TRUE))
   df
-  #browser()
-  #f <- tryCatch({
-    m <- aov(gene.count ~ shuf.cat, data = df)
-    f <- summary(m)[[1]][1,4]
-  #}, 
-  #  error=function(e) NA
-  #)
-  #m <- aov(gene.count ~ shuf.cat, data = df)
   
+  m <- aov(gene.count ~ shuf.cat, data = df)
+  f <- summary(m)[[1]][1,4]
   f
 }
+
 
 # Summarise raw data for dot-standard deviation plots
 summ_for_dotplot <- function(df) {
@@ -138,7 +132,73 @@ dotplot <- function(df) {
 t_test_func <- function(x) {
   t.test(x[[1]], x[[2]])$statistic
 }
-# Use future_map() and combn() to apply the t_test_func() function to each unique pair of vectors
-#tic()
-#t_test_results <- future_map_dbl(combn(test_data, 2, simplify = FALSE), #t_test_func)
-#g_time <- toc()
+
+# Serial mean comparisons from a data frame
+calc_mean_diff <- function(df) {
+  
+  # Get all combinations of means
+  combos <- combn(df$mean.gene.count, 2)
+  mean.diff <- abs(combos[1, ] - combos[2, ])
+  
+  # Create a vector of labeles of the differences
+  diff.id <- combn(df$category, m = 2, simplify = TRUE) %>% 
+    apply(MARGIN = 2, str_flatten, collapse = "-")
+  
+  data.frame(diff.id = diff.id, mean.diff = mean.diff)
+}
+
+
+# Shuffles data (or doesn't) and calculates differences between each combination of means
+shuf_and_calc_means <- function(df, shuf = FALSE, ...) { # the ... has to be there because future_map passes the iterator to the function
+  # Shuffle data 
+  if(shuf) {
+    df$category <- sample(df$category, size = nrow(df), replace = TRUE)
+  }
+  
+  # Calculate means
+  means <- df %>%
+    group_by(category) %>%
+    summarise(mean.gene.count = mean(gene.count, na.rm = TRUE)) #%>%
+    #mutate(dif.id = paste(category.1, category.2, sep = "-"))
+  
+  # Calculate mean differences for each set of groups
+  diffs <- calc_mean_diff(means)
+  #browser()
+  diffs
+}
+
+
+sim_list_to_df <- function(sim_list, summarise = FALSE, alpha = 0.95) {
+  #browser()
+  df <- sim_list %>% 
+    bind_rows(.id = "id") #%>%
+    #mutate(dif.id = paste(category.1, category.2, sep = "-")) %>%
+    #dplyr::select(!c(category.1, category.2)) #%>%
+    #pivot_wider(names_from = "dif.id", values_from = "mean.diff")
+  
+  if(summarise) {
+    df <- df %>%
+      group_by(diff.id) %>%
+      summarise(cutoff.diff = quantile(mean.diff, alpha))
+  }
+  df
+}
+
+
+monte_carlo_tukey <- function(raw_data, n) {
+ # browser()
+  # Calculate the observed differences between treatment means
+  actual_mean_diffs <- shuf_and_calc_means(raw_data, shuf = FALSE)
+  
+  # Calculate teh 
+  null_mean_diffs <- future_map(seq_along(1:n), 
+                                shuf_and_calc_means, df=raw_data, shuf=TRUE,
+                                .options = furrr_options(seed = TRUE)) #%>% # works
+    null_mean_diffs <- sim_list_to_df(null_mean_diffs, summarise = TRUE, alpha = 0.95) # Just calculates the means
+  
+  comparison <- full_join(null_mean_diffs, actual_mean_diffs, by = "diff.id") %>%
+    mutate(sig.diff = case_when(mean.diff >= cutoff.diff ~ TRUE, 
+                                TRUE ~ FALSE)) # This, the most annoying syntax in the world, returns FALSE if the previous condition was not met
+  
+  comparison
+}

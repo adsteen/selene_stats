@@ -17,28 +17,31 @@ A simple way to do this would be an ANOVA. Let's try and check whether the distr
 ```{r, message=FALSE}
 library(tidyverse)
 library(MASS)
+library(furrr)
+library(tictoc)
+library(rlang) # this is maybe needed by calculate_mean_diff
+plan(multisession)
+source("R/helper_funs.R")
 theme_set(theme_classic()) 
 
-# Load and pre-process the data by region and pathotype
-region <- read_csv("data/region.csv") %>%
-  filter(`gene number`!="TOTAL") %>%
-  pivot_longer(cols = 2:7, names_to = "category", values_to = "count") %>%
-  mutate(gene.count = as.numeric(`gene number`)) %>%
-  dplyr::select(-`gene number`) %>%
+# Read in raw zor-orz data
+region <- readxl::read_xlsx("data/FINAL data for Steen.xlsx", 
+                            sheet = "zor-orz gene number",
+                            range = "A11:G18") %>%
+  rename(gene.count = Continent) %>%
+  pivot_longer(-1, names_to = "category", values_to = "count") %>%
+  group_by(category) %>%
+  mutate(freq = count / sum(count, na.rm = TRUE))
+  
+path <- readxl::read_xlsx("data/FINAL data for Steen.xlsx", 
+                            sheet = "zor-orz gene number",
+                            range = "A1:E8") %>%
+  rename(gene.count = Pathotype) %>%
+  pivot_longer(-1, names_to = "category", values_to = "count") %>%
   group_by(category) %>%
   mutate(freq = count / sum(count, na.rm = TRUE))
 
-path <- read_csv("data/pathotype.csv") %>%
-  #filter(`gene number`!="TOTAL") %>%
-  pivot_longer(cols = 2:5, names_to = "category", values_to="count") %>%
-  mutate(gene.count = as.numeric(`gene number`)) %>%
-  dplyr::select(-`gene number`) %>%
-  group_by(category) %>%
-  mutate(freq = count / sum(count, na.rm = TRUE))
 
-# I need to recreate the raw data to do an anova
-# I wrote some *very* ugly code to do this, so I hid it in a separate file
-source("R/recreate_raw_data.R")
 
 
 raw_region_data <- recreate_raw(region) %>%
@@ -72,6 +75,7 @@ raw_bar_plot <- function(df) {
   p
 }
 
+# Make up plots for later display
 p_reg_line <- raw_line_plot(raw_region_data)
 p_path_line <- raw_line_plot(raw_path_data)
 p_reg_bar <- raw_bar_plot(raw_region_data)
@@ -87,9 +91,7 @@ cowplot::plot_grid(p_region, p_path,
                    nrow=3)
 ```
 
-I don't see obvious differences in distribution, but this is why we do statistics I suppose.
-
-Is a linear model (ANOVA) good for these data? Specifically: ANOVA is fairly robust to unbalanced designs and to heteroskedasticity, but not to hetereoskedastic data in an unbalanced design. So let's check the heteroskedasticity.
+These data sets have some subtle differences in distributions among pathotypes/regions, which are easiest to see in the middle row of colored line plots. Is a linear model (ANOVA) good for these data? Specifically: ANOVA is fairly robust to unbalanced designs and to heteroskedasticity, but not to hetereoskedastic data in an unbalanced design. So let's check the heteroskedasticity.
 
 ### Linear model for regions
 
@@ -104,11 +106,9 @@ This model finds signficant differences among regions. But before we take this t
 plot(region_model, which=2) 
 ```
 
-Oof, that's pretty grim. I'd say we these residuals are non-normally distributed enough that I don't think this is a great model.
+I'd say we these residuals are sufficiently non-normally distributed that a linear model is not a good choice for the regional data.
 
 ![](https://64.media.tumblr.com/f8b7a14c2fa304a712b5f92ea14d62f9/tumblr_n41bxrhleZ1rvirvyo1_400.gif)
-
-We could do a Tukey post-hoc analysis to determine which categories are significantly different from which. But given that QQ plot, I don't think we should go down that road.
 
 ### Linear model for pathotypes
 
@@ -139,11 +139,9 @@ ggplot(d, aes(x=gene.count, y=count)) +
   facet_wrap(~category, scale="free_y")
 ```
 
-**THESE ARE NOT POISSON-LOOKING DATA**. I'm pretty sure that part of the issue is there is correlation between the two genes in terms of whether they are likely to appear in hte genome - that is, if one of the genes is present, the other is likely to be as well. Note there are almost never exactly 3 genes present.
+These data do not look poisson-distributed. I'm pretty sure that part of the issue is there is correlation between the two genes in terms of whether they are likely to appear in hte genome - that is, if one of the genes is present, the other is likely to be as well. Note there are almost never exactly 3 genes present. So, I don't really want to model this with Poisson distributions.
 
-So, I don't really want to model this with Poisson distributions (or, we could model each gene separately with a Poisson distribution. Not sure whether that helps anyone).
-
-```{r, echo=FALSE, include=FALSE}
+```{r, echo=FALSE, include=FALSE, message=FALSE}
 ### Fit each category to its own poisson model
 # function to fit the model
 pois_fit <- function(df) {
@@ -160,48 +158,29 @@ d_nest <- d %>%
   
 ```
 
-## Poisson summary
-
-We probably don't want to apply a poisson model to data that don't qualitatively look poisson-distributed, much as I like the idea o fusing those kinds of distributions.
-
 # Monte Carlo simulations
 
 I think it is more robust to do a Monte Carlo simulation of variation in the ANOVA *f* ratio.
 
 ```{r}
-# There are, like, a lot of faster ways to do this
-shuf_calc_f <- function(df, nrow) {
-  df <- df %>% 
-    ungroup() %>%
-    mutate(shuf.cat = sample(category, size = nrow, replace=TRUE))
-  df
-  
-  m <- aov(gene.count ~ shuf.cat, data = df)
-  f <- summary(m)[[1]][1,4]
-  f
-}
-
+# Set the number of monte carlo replicates
 n <- 10000
 nrow.reg <- nrow(region)
 nrow.path <- nrow(path)
-reg.f.vec <- vector("double", n)
-path.f.vec <- vector("double", n)
 
-set.seed(512)
-region.loop.time <- system.time({
-  for(i in 1:n) {
-  reg.f.vec[i] <- shuf_calc_f(region, nrow.reg)
-}
-})
 
-set.seed(2112)
-path.loop.time <- system.time({
-  for(i in 1:n) {
-  path.f.vec[i] <- shuf_calc_f(path, nrow.path)
-}
-})
-# This takes ~22 sec per loop on my system
+tic()
+reg.f.vec <- future_map_dbl(seq_along(1:n), 
+                            shuf_calc_f, 
+                            df=region, nrow=nrow.reg, 
+                             .options = furrr_options(seed = TRUE)) 
+path.f.vec <- future_map_dbl(seq_along(1:n), 
+                             shuf_calc_f, 
+                             df=path, nrow=nrow.path, 
+                             .options = furrr_options(seed = TRUE)) 
+toc() # Runs in about 14 seconds on 6 core macbook pro; pretty sweet
 
+# put the simulated f values in a data frame
 f_vals <- data.frame(reg.sim.f = reg.f.vec,
                      path.sim.f = path.f.vec)
 ```
@@ -249,3 +228,27 @@ actual.f.reg <- reg.f.real %>%
 |--------------|--------------------------|-------------------|
 | by pathology | `r sim.max.f.print.path` | `r actual.f.path` |
 | by region    | `r sim.max.f.print.reg`  | `r actual.f.reg`  |
+
+
+# Monte Carlo Tukey Test 
+
+A Tukey test works by comparing means of all possible combinations of populations (in this case, regions or pathotypes) and then comparing to a studentized range distribution. I'm going to do exactly this, except that the studentized range distribution is replaced with the observed distribution of mean differences in shuffled data. 
+
+```{r}
+# Let's make a function tocalculate actual means and then simulated means
+tic()
+n.tukey <- 1e4
+path_diffs <- monte_carlo_tukey(raw_path_data, n.tukey)
+region_diffs <- monte_carlo_tukey(raw_region_data, n.tukey)
+toc()
+```
+# Results
+
+```{r}
+knitr::kable(path_diffs)
+```
+
+```{r}
+knitr::kable(region_diffs)
+```
+
