@@ -287,6 +287,20 @@ knitr::kable(path_diffs)
 | healthy-urinary disease            |   0.4214398 | 0.1771591 | FALSE    |
 | intestinal disease-urinary disease |   0.2808828 | 1.2499943 | TRUE     |
 
+### How to interpret this table
+
+This is a table comparing differences in the mean gene number between
+each pair of groups. For instance, the top row is `Africa-Asia`,
+`mean.diff` indicates that the absolute value of the difference in the
+mean number of zor/orz genes between Africa and Asia is 0.091.
+`cutoff.diff`, the “cutoff” above which a difference would be
+statistically significant (p \< 0.05), is 0.286. 0.091 is not greater
+than 0.286, so there is no significant difference. Thus, the `sig.diff`
+entry is FALSE.
+
+`Asia-North America`, does have a significant difference: `cutoff.diff`
+is 0.087, `mean.diff` is 0.183, so `sig.diff` is TRUE.
+
 ``` r
 knitr::kable(region_diffs)
 ```
@@ -370,13 +384,6 @@ knitr::kable(tisB_region_diffs)
 | North America-Oceania       |   0.2476114 | 0.1835067 | FALSE    |
 | North America-South America |   0.3112275 | 0.2545885 | FALSE    |
 | Oceania-South America       |   0.3896170 | 0.4380952 | TRUE     |
-
-### How to interpret this table
-
-This is a table comparing differences in the mean gene number between each pair of groups. For instance, the top row is `Africa-Asia`, `mean.diff` indicates that the absolute value of the difference in the mean number of zor/orz genes between Africa and Asia is 0.091. `cutoff.diff`, the "cutoff" above which a difference would be statistically significant (p < 0.05), is 0.286. 0.091 is not greater than 0.286, so there is no significant difference. Thus, the `sig.diff` entry is FALSE.
-
-`Asia-North America`, does have a significant difference: `cutoff.diff` is 0.087, `mean.diff` is 0.183, so `sig.diff` is TRUE.  
-
 
 ## tisB-istR pathotype differences
 

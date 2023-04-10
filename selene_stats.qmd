@@ -298,7 +298,7 @@ toc()
 knitr::kable(tisB_region_diffs)
 ```
 
-## tisB-istR patholotype differences
+## tisB-istR pathotype differences
 
 ```{r}
 knitr::kable(tisB_path_diffs)
