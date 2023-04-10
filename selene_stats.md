@@ -5,8 +5,6 @@ Testing differences in gene abundance among regions and pathotypes
 
 The purpose of this analysis is to assess potential differences in the
 distribution of a specific gene among microbes from a specific microbe.
-Because this document is public, I’m not going to name the gene or the
-microbe.
 
 ## ANOVA
 
@@ -262,7 +260,7 @@ that the studentized range distribution is replaced with the observed
 distribution of mean differences in shuffled data.
 
 ``` r
-# Let's make a function tocalculate actual means and then simulated means
+# Let's make a function to calculate actual means and then simulated means
 tic()
 n.tukey <- 1e4
 path_diffs <- monte_carlo_tukey(raw_path_data, n.tukey)
@@ -270,9 +268,11 @@ region_diffs <- monte_carlo_tukey(raw_region_data, n.tukey)
 toc()
 ```
 
-    26.41 sec elapsed
+    81.901 sec elapsed
 
 # Results
+
+## zor-orz results
 
 ``` r
 knitr::kable(path_diffs)
@@ -308,3 +308,87 @@ knitr::kable(region_diffs)
 | North America-Oceania       |   0.4911992 | 0.5142350 | TRUE     |
 | North America-South America |   0.6277316 | 1.0857650 | TRUE     |
 | Oceania-South America       |   0.7660842 | 1.6000000 | TRUE     |
+
+# tisB - istR analysis
+
+We want to do the same analysis for the tisB-istR gene pair.
+
+First load the data.
+
+``` r
+# Read in raw zor-orz data
+tisB_region <- readxl::read_xlsx("data/FINAL data for Steen.xlsx", 
+                            sheet = "tisB-istR gene number",
+                            range = "A11:G13") %>%
+  rename(gene.count = Continent) %>%
+  pivot_longer(-1, names_to = "category", values_to = "count") %>%
+  group_by(category) %>%
+  mutate(freq = count / sum(count, na.rm = TRUE))
+
+tisB_path <- readxl::read_xlsx("data/FINAL data for Steen.xlsx", 
+                            sheet = "tisB-istR gene number",
+                            range = "A1:E3") %>%
+  rename(gene.count = Pathotype) %>%
+  pivot_longer(-1, names_to = "category", values_to = "count") %>%
+  group_by(category) %>%
+  mutate(freq = count / sum(count, na.rm = TRUE))
+
+raw_region_tisB <- recreate_raw(tisB_region) %>%
+  arrange(category) # this appears to have worked
+raw_path_tisB <- recreate_raw(tisB_path) %>%
+  arrange(category)
+
+
+tic()
+tisB_region_diffs <- monte_carlo_tukey(raw_region_tisB, n=n.tukey)
+tisB_path_diffs <- monte_carlo_tukey(raw_path_tisB, n=n.tukey)
+toc()
+```
+
+    80.467 sec elapsed
+
+## tisB-istR regional differences
+
+``` r
+knitr::kable(tisB_region_diffs)
+```
+
+| diff.id                     | cutoff.diff | mean.diff | sig.diff |
+|:----------------------------|------------:|----------:|:---------|
+| Africa-Asia                 |   0.2863453 | 0.0913098 | FALSE    |
+| Africa-Europe               |   0.2861732 | 0.0870197 | FALSE    |
+| Africa-North America        |   0.2841531 | 0.0920782 | FALSE    |
+| Africa-Oceania              |   0.3701419 | 0.0914286 | FALSE    |
+| Africa-South America        |   0.4166667 | 0.3466667 | FALSE    |
+| Asia-Europe                 |   0.0827729 | 0.0042901 | FALSE    |
+| Asia-North America          |   0.0872637 | 0.1833879 | TRUE     |
+| Asia-Oceania                |   0.2452541 | 0.0001188 | FALSE    |
+| Asia-South America          |   0.3119031 | 0.4379764 | TRUE     |
+| Europe-North America        |   0.0795602 | 0.1790978 | TRUE     |
+| Europe-Oceania              |   0.2442358 | 0.0044089 | FALSE    |
+| Europe-South America        |   0.3102924 | 0.4336863 | TRUE     |
+| North America-Oceania       |   0.2476114 | 0.1835067 | FALSE    |
+| North America-South America |   0.3112275 | 0.2545885 | FALSE    |
+| Oceania-South America       |   0.3896170 | 0.4380952 | TRUE     |
+
+### How to interpret this table
+
+This is a table comparing differences in the mean gene number between each pair of groups. For instance, the top row is `Africa-Asia`, `mean.diff` indicates that the absolute value of the difference in the mean number of zor/orz genes between Africa and Asia is 0.091. `cutoff.diff`, the "cutoff" above which a difference would be statistically significant (p < 0.05), is 0.286. 0.091 is not greater than 0.286, so there is no significant difference. Thus, the `sig.diff` entry is FALSE.
+
+`Asia-North America`, does have a significant difference: `cutoff.diff` is 0.087, `mean.diff` is 0.183, so `sig.diff` is TRUE.  
+
+
+## tisB-istR pathotype differences
+
+``` r
+knitr::kable(tisB_path_diffs)
+```
+
+| diff.id                            | cutoff.diff | mean.diff | sig.diff |
+|:-----------------------------------|------------:|----------:|:---------|
+| bacteremia-healthy                 |   0.3121799 | 0.1798695 | FALSE    |
+| bacteremia-intestinal disease      |   0.2583366 | 0.8981600 | TRUE     |
+| bacteremia-urinary disease         |   0.2850734 | 0.1105877 | FALSE    |
+| healthy-intestinal disease         |   0.2074537 | 0.7182905 | TRUE     |
+| healthy-urinary disease            |   0.2407580 | 0.0692819 | FALSE    |
+| intestinal disease-urinary disease |   0.1598134 | 0.7875724 | TRUE     |
