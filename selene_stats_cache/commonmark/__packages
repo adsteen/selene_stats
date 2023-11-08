@@ -8,3 +8,7 @@ dplyr
 stringr
 forcats
 MASS
+future
+furrr
+tictoc
+rlang
